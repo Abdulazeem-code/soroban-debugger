@@ -135,6 +135,17 @@ pub struct RunArgs {
     #[arg(long, value_name = "PATTERN")]
     pub storage_filter: Vec<String>,
 
+    /// Enable instruction-level debugging
+    #[arg(long)]
+    pub instruction_debug: bool,
+
+    /// Start with instruction stepping enabled
+    #[arg(long)]
+    pub step_instructions: bool,
+
+    /// Step mode for instruction debugging (into, over, out, block)
+    #[arg(long, default_value = "into")]
+    pub step_mode: String,
     /// Execute contract in dry-run mode: simulate execution without persisting storage changes
     #[arg(long)]
     pub dry_run: bool,

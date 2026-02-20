@@ -120,6 +120,17 @@ impl DebuggerUI {
 
     /// Display current state
     fn inspect(&self) {
+        println!("\n=== Current State ===");
+        if let Ok(state) = self.engine.state().lock() {
+            if let Some(func) = state.current_function() {
+                println!("Function: {}", func);
+            } else {
+                println!("Function: (none)");
+            }
+            println!("Steps: {}", state.step_count());
+        } else {
+            println!("Function: (unavailable)");
+            println!("Steps: (unavailable)");
         let steps = self.engine.state().step_count();
         let paused = self.engine.is_paused();
         if let Some(func) = self.engine.state().current_function() {
@@ -132,7 +143,6 @@ impl DebuggerUI {
         } else {
             tracing::info!(steps = steps, paused = paused, "Current execution state");
         }
-        println!("Steps: {}", self.engine.state().step_count());
         println!("Paused: {}", self.engine.is_paused());
 
         println!();
