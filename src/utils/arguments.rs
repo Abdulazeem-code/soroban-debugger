@@ -159,7 +159,7 @@ impl ArgumentParser {
                     Err(ArgumentParseError::UnsupportedType(format!(
                         "Floating point numbers are not supported in Soroban: {}",
                         f
-                    )));
+                    )))
                 } else {
                     Err(ArgumentParseError::ConversionError(format!(
                         "Cannot convert number to i128: {}",
