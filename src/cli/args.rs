@@ -57,6 +57,14 @@ pub struct RunArgs {
     /// Enable verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Show contract events emitted during execution
+    #[arg(long)]
+    pub show_events: bool,
+
+    /// Filter events by topic
+    #[arg(long)]
+    pub filter_topic: Option<String>,
 }
 
 #[derive(Parser)]

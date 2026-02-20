@@ -63,6 +63,31 @@ pub fn run(args: RunArgs) -> Result<()> {
 
     println!("Result: {:?}", result);
 
+    // Display events if requested
+    if args.show_events {
+        println!("\n--- Events ---");
+        let events = engine.executor().get_events()?;
+        let filtered_events = if let Some(topic) = &args.filter_topic {
+            crate::inspector::events::EventInspector::filter_events(&events, topic)
+        } else {
+            events
+        };
+
+        if filtered_events.is_empty() {
+            println!("No events captured.");
+        } else {
+            for (i, event) in filtered_events.iter().enumerate() {
+                println!("Event #{}:", i);
+                if let Some(contract_id) = &event.contract_id {
+                    println!("  Contract: {}", contract_id);
+                }
+                println!("  Topics: {:?}", event.topics);
+                println!("  Data: {}", event.data);
+                println!();
+            }
+        }
+    }
+
     Ok(())
 }
 

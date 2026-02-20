@@ -114,4 +114,8 @@ impl ContractExecutor {
         info!("Argument parsing not yet implemented");
         Ok(vec![])
     }
+    /// Get events captured during execution
+    pub fn get_events(&self) -> Result<Vec<crate::inspector::events::ContractEvent>> {
+        crate::inspector::events::EventInspector::get_events(self.env.host())
+    }
 }

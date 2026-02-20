@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use predicates::prelude::*;
 
 #[test]
 fn test_help_command() {
@@ -19,4 +20,25 @@ fn test_upgrade_check_help_command() {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_soroban-debug"));
     cmd.arg("upgrade-check").arg("--help");
     cmd.assert().success();
+}
+
+#[test]
+fn test_run_command_event_flags() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_soroban-debug"));
+    cmd.arg("run")
+        .arg("--contract")
+        .arg("test.wasm") // File doesn't need to exist for argument parsing check if we just check help or similar, but here we might fail on file read.
+        .arg("--show-events")
+        .arg("--filter-topic")
+        .arg("my-topic");
+
+    // We expect failure because test.wasm doesn't exist, but valid flags should be parsed.
+    // Actually, clap fails if required args are missing.
+    // Let's just check help to see if flags are listed.
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_soroban-debug"));
+    cmd.arg("run").arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("--show-events"))
+        .stdout(predicate::str::contains("--filter-topic"));
 }
