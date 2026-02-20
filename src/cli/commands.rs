@@ -1,5 +1,6 @@
 use crate::cli::args::{
-    CompareArgs, InspectArgs, InteractiveArgs, OptimizeArgs, RunArgs, UpgradeCheckArgs, Verbosity,
+    CompareArgs, InspectArgs, InteractiveArgs, OptimizeArgs, RunArgs, TuiArgs, UpgradeCheckArgs,
+    Verbosity,
 };
 use crate::debugger::engine::DebuggerEngine;
 use crate::debugger::instruction_pointer::StepMode;
@@ -307,6 +308,43 @@ pub fn interactive(args: InteractiveArgs, _verbosity: Verbosity) -> Result<()> {
 
     let mut ui = DebuggerUI::new(engine)?;
     ui.run()?;
+
+    Ok(())
+}
+
+/// Launch the full-screen TUI dashboard.
+pub fn tui(args: TuiArgs, _verbosity: Verbosity) -> Result<()> {
+    let wasm_bytes = fs::read(&args.contract)
+        .with_context(|| format!("Failed to read WASM file: {:?}", args.contract))?;
+
+    if let Some(snapshot_path) = &args.network_snapshot {
+        let loader = SnapshotLoader::from_file(snapshot_path)?;
+        loader.apply_to_environment()?;
+    }
+
+    let parsed_args = if let Some(ref a) = args.args {
+        Some(parse_args(a)?)
+    } else {
+        None
+    };
+
+    let initial_storage = if let Some(ref s) = args.storage {
+        Some(parse_storage(s)?)
+    } else {
+        None
+    };
+
+    let mut executor = ContractExecutor::new(wasm_bytes)?;
+    if let Some(storage) = initial_storage {
+        executor.set_initial_storage(storage)?;
+    }
+
+    let mut engine = DebuggerEngine::new(executor, args.breakpoint);
+
+    // Pre-execute so live data is available immediately in the dashboard
+    let _ = engine.execute(&args.function, parsed_args.as_deref());
+
+    crate::ui::run_dashboard(engine, &args.function)?;
 
     Ok(())
 }

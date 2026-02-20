@@ -60,6 +60,9 @@ pub enum Commands {
     /// Start an interactive debugging session
     Interactive(InteractiveArgs),
 
+    /// Launch the full-screen TUI dashboard
+    Tui(TuiArgs),
+
     /// Inspect contract information without executing
     Inspect(InspectArgs),
 
@@ -284,4 +287,32 @@ pub struct CompletionsArgs {
     /// Shell to generate completion script for
     #[arg(value_enum)]
     pub shell: Shell,
+}
+
+/// Arguments for the TUI dashboard subcommand
+#[derive(Parser)]
+pub struct TuiArgs {
+    /// Path to the contract WASM file
+    #[arg(short, long)]
+    pub contract: PathBuf,
+
+    /// Function name to execute inside the TUI
+    #[arg(short, long)]
+    pub function: String,
+
+    /// Function arguments as JSON array (e.g., '["arg1", "arg2"]')
+    #[arg(short, long)]
+    pub args: Option<String>,
+
+    /// Initial storage state as JSON object
+    #[arg(short, long)]
+    pub storage: Option<String>,
+
+    /// Set breakpoints at function names
+    #[arg(short, long)]
+    pub breakpoint: Vec<String>,
+
+    /// Network snapshot file to load before execution
+    #[arg(long)]
+    pub network_snapshot: Option<PathBuf>,
 }
