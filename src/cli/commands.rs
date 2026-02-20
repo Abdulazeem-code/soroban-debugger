@@ -6,6 +6,7 @@ use crate::ui::tui::DebuggerUI;
 use crate::Result;
 use anyhow::Context;
 use std::fs;
+use tracing::info as log_info;
 
 /// Execute the run command
 pub fn run(args: RunArgs) -> Result<()> {
@@ -152,11 +153,25 @@ pub fn inspect(args: InspectArgs) -> Result<()> {
     Ok(())
 }
 
-/// Parse JSON arguments into a string for now (will be improved later)
+/// Parse JSON arguments with validation (actual parsing happens during execution)
 fn parse_args(json: &str) -> Result<String> {
-    // Basic validation
-    serde_json::from_str::<serde_json::Value>(json)
+    // Validate JSON structure at parse time to give quick feedback
+    let value = serde_json::from_str::<serde_json::Value>(json)
         .with_context(|| format!("Invalid JSON arguments: {}", json))?;
+
+    // Provide helpful context about what was parsed
+    match value {
+        serde_json::Value::Array(ref arr) => {
+            log_info!("Parsed {} argument(s)", arr.len());
+        }
+        serde_json::Value::Object(ref obj) => {
+            log_info!("Parsed object with {} fields for Map argument", obj.len());
+        }
+        _ => {
+            log_info!("Parsed single value argument");
+        }
+    }
+
     Ok(json.to_string())
 }
 
