@@ -30,6 +30,9 @@ fn main() -> Result<()> {
         Commands::Optimize(args) => {
             soroban_debugger::cli::commands::optimize(args)?;
         }
+        Commands::Profile(args) => {
+            soroban_debugger::cli::commands::profile(args)?;
+        }
     }
 
     Ok(())
