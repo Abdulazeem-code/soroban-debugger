@@ -51,9 +51,7 @@ impl StorageFilter {
     pub fn new(patterns: &[String]) -> Result<Self, String> {
         let parsed: Result<Vec<FilterPattern>, String> =
             patterns.iter().map(|p| FilterPattern::parse(p)).collect();
-        Ok(Self {
-            patterns: parsed?,
-        })
+        Ok(Self { patterns: parsed? })
     }
 
     /// Check if any filter matches the given key.
@@ -151,10 +149,7 @@ impl StorageInspector {
 
         if !filter.is_empty() {
             let total = self.storage.len();
-            println!(
-                "\n  Showing {}/{} entries",
-                matched, total
-            );
+            println!("\n  Showing {}/{} entries", matched, total);
         }
     }
 
@@ -247,11 +242,8 @@ mod tests {
 
     #[test]
     fn test_multiple_filters_or_logic() {
-        let filter = StorageFilter::new(&[
-            "balance:*".to_string(),
-            "total_supply".to_string(),
-        ])
-        .unwrap();
+        let filter =
+            StorageFilter::new(&["balance:*".to_string(), "total_supply".to_string()]).unwrap();
         assert!(filter.matches("balance:alice"));
         assert!(filter.matches("total_supply"));
         assert!(!filter.matches("admin"));
