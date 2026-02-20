@@ -160,6 +160,14 @@ pub struct RunArgs {
     /// Path to JSON file containing array of argument sets for batch execution
     #[arg(long)]
     pub batch_args: Option<PathBuf>,
+
+    /// Automatically generate a Rust unit test from this execution
+    #[arg(long)]
+    pub generate_test: bool,
+
+    /// Directory to write generated tests to
+    #[arg(long, default_value = "tests/generated")]
+    pub test_output_dir: PathBuf,
 }
 
 impl RunArgs {

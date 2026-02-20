@@ -6,6 +6,7 @@ use crate::runtime::executor::ContractExecutor;
 use crate::runtime::instruction::Instruction;
 use crate::runtime::instrumentation::Instrumenter;
 use crate::Result;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tracing::info;
 
@@ -18,6 +19,8 @@ pub struct DebuggerEngine {
     instrumenter: Instrumenter,
     paused: bool,
     instruction_debug_enabled: bool,
+    generate_test: bool,
+    test_output_dir: Option<std::path::PathBuf>,
 }
 
 impl DebuggerEngine {
@@ -38,7 +41,15 @@ impl DebuggerEngine {
             instrumenter: Instrumenter::new(),
             paused: false,
             instruction_debug_enabled: false,
+            generate_test: false,
+            test_output_dir: None,
         }
+    }
+
+    /// Enable automatic test generation.
+    pub fn enable_test_generation(&mut self, output_dir: std::path::PathBuf) {
+        self.generate_test = true;
+        self.test_output_dir = Some(output_dir);
     }
 
     /// Enable instruction-level debugging.
@@ -88,9 +99,51 @@ impl DebuggerEngine {
             self.pause_at_function(function);
         }
 
+        // Capture initial storage if test generation is enabled
+        let storage_before = if self.generate_test {
+            crate::inspector::storage::StorageInspector::capture_snapshot(self.executor.host())
+        } else {
+            HashMap::new()
+        };
+
         let start_time = std::time::Instant::now();
         let result = self.executor.execute(function, args);
         let duration = start_time.elapsed();
+
+        // Capture final storage and generate test if enabled
+        if self.generate_test {
+            let storage_after = crate::inspector::storage::StorageInspector::capture_snapshot(self.executor.host());
+            let output_str = match &result {
+                Ok(out) => out.clone(),
+                Err(e) => format!("Error: {}", e),
+            };
+
+            let arg_vec = if let Some(a) = args {
+                vec![a.to_string()]
+            } else {
+                vec![]
+            };
+
+            let codegen = crate::codegen::TestGenerator::new(
+                self.test_output_dir.clone().unwrap_or_else(|| std::path::PathBuf::from("tests/generated"))
+            );
+
+            // Paths handling
+            let contract_path = std::path::PathBuf::from("contract.wasm"); // This should be passed in ideally
+
+            if let Err(e) = codegen.generate_test(
+                &contract_path,
+                function,
+                arg_vec,
+                &output_str,
+                &storage_before,
+                &storage_after,
+            ) {
+                tracing::error!("Failed to generate test: {}", e);
+            } else {
+                tracing::info!("Test generated successfully in {:?}", self.test_output_dir);
+            }
+        }
 
         self.update_call_stack(duration)?;
 

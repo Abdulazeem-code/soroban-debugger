@@ -157,6 +157,10 @@ pub fn run(args: RunArgs, _verbosity: Verbosity) -> Result<()> {
 
     let mut engine = DebuggerEngine::new(executor, args.breakpoint);
 
+    if args.generate_test {
+        engine.enable_test_generation(args.test_output_dir);
+    }
+
     if args.instruction_debug {
         print_info("Enabling instruction-level debugging...");
         engine.enable_instruction_debug(&wasm_bytes)?;

@@ -1,6 +1,7 @@
 pub mod analyzer;
 pub mod batch;
 pub mod cli;
+pub mod codegen;
 pub mod compare;
 pub mod config;
 pub mod debugger;
