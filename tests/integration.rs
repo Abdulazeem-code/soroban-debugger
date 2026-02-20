@@ -1,2 +1,5 @@
 #[path = "integration/arg_parsing_tests.rs"]
 mod arg_parsing_tests;
+
+#[path = "integration/storage_filter_tests.rs"]
+mod storage_filter_tests;

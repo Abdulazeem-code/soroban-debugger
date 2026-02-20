@@ -98,6 +98,15 @@ pub fn run(args: RunArgs) -> Result<()> {
         }
     }
 
+    // Display storage with optional filtering
+    if !args.storage_filter.is_empty() {
+        let storage_filter = crate::inspector::storage::StorageFilter::new(&args.storage_filter)
+            .map_err(|e| anyhow::anyhow!("Invalid storage filter: {}", e))?;
+        println!("\n--- Storage ---");
+        let inspector = crate::inspector::StorageInspector::new();
+        inspector.display_filtered(&storage_filter);
+    }
+
     Ok(())
 }
 

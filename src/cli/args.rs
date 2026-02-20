@@ -69,6 +69,13 @@ pub struct RunArgs {
     /// Execute the contract call N times for stress testing
     #[arg(long)]
     pub repeat: Option<u32>,
+
+    /// Filter storage output by key pattern (repeatable). Supports:
+    ///   prefix*       — match keys starting with prefix
+    ///   re:<regex>    — match keys by regex
+    ///   exact_key     — match key exactly
+    #[arg(long, value_name = "PATTERN")]
+    pub storage_filter: Vec<String>,
 }
 
 #[derive(Parser)]

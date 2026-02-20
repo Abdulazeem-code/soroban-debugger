@@ -5,4 +5,4 @@ pub mod storage;
 
 pub use budget::{BudgetInfo, BudgetInspector};
 pub use stack::CallStackInspector;
-pub use storage::StorageInspector;
+pub use storage::{StorageFilter, StorageInspector};

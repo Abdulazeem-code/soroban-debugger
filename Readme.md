@@ -75,7 +75,37 @@ Options:
   -a, --args <JSON>         Function arguments as JSON array
   -s, --storage <JSON>      Initial storage state as JSON
   -b, --breakpoint <NAME>   Set breakpoint at function name
+      --storage-filter <PATTERN>  Filter storage by key pattern (repeatable)
 ```
+
+### Storage Filtering
+
+Filter large storage outputs by key pattern using `--storage-filter`:
+
+```bash
+# Prefix match: keys starting with "balance:"
+soroban-debug run --contract token.wasm --function mint \
+  --storage-filter 'balance:*'
+
+# Regex match: keys matching a pattern
+soroban-debug run --contract token.wasm --function mint \
+  --storage-filter 're:^user_\d+$'
+
+# Exact match
+soroban-debug run --contract token.wasm --function mint \
+  --storage-filter 'total_supply'
+
+# Multiple filters (combined with OR)
+soroban-debug run --contract token.wasm --function mint \
+  --storage-filter 'balance:*' \
+  --storage-filter 'total_supply'
+```
+
+| Pattern          | Type   | Matches                                |
+|------------------|--------|----------------------------------------|
+| `balance:*`      | Prefix | Keys starting with `balance:`          |
+| `re:^user_\d+$`  | Regex  | Keys matching the regex                |
+| `total_supply`   | Exact  | Only the key `total_supply`            |
 
 ### Interactive Command
 
