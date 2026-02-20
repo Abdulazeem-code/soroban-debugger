@@ -150,6 +150,10 @@ pub struct RunArgs {
     /// Execute contract in dry-run mode: simulate execution without persisting storage changes
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Path to JSON file containing array of argument sets for batch execution
+    #[arg(long)]
+    pub batch_args: Option<PathBuf>,
 }
 
 impl RunArgs {

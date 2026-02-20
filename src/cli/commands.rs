@@ -25,8 +25,83 @@ fn print_warning(message: impl AsRef<str>) {
     println!("{}", Formatter::warning(message));
 }
 
+/// Execute batch mode with parallel execution
+fn run_batch(args: &RunArgs, batch_file: &std::path::Path) -> Result<()> {
+    print_info(format!("Loading contract: {:?}", args.contract));
+    logging::log_loading_contract(&args.contract.to_string_lossy());
+
+    let wasm_bytes = fs::read(&args.contract)
+        .with_context(|| format!("Failed to read WASM file: {:?}", args.contract))?;
+
+    print_success(format!(
+        "Contract loaded successfully ({} bytes)",
+        wasm_bytes.len()
+    ));
+    logging::log_contract_loaded(wasm_bytes.len());
+
+    print_info(format!("Loading batch file: {:?}", batch_file));
+    let batch_items = crate::batch::BatchExecutor::load_batch_file(batch_file)?;
+    print_success(format!("Loaded {} test cases", batch_items.len()));
+
+    if let Some(snapshot_path) = &args.network_snapshot {
+        print_info(format!("\nLoading network snapshot: {:?}", snapshot_path));
+        logging::log_loading_snapshot(&snapshot_path.to_string_lossy());
+        let loader = SnapshotLoader::from_file(snapshot_path)?;
+        let loaded_snapshot = loader.apply_to_environment()?;
+        logging::log_display(loaded_snapshot.format_summary(), logging::LogLevel::Info);
+    }
+
+    print_info(format!(
+        "\nExecuting {} test cases in parallel for function: {}",
+        batch_items.len(),
+        args.function
+    ));
+    logging::log_execution_start(&args.function, None);
+
+    let executor = crate::batch::BatchExecutor::new(wasm_bytes, args.function.clone());
+    let results = executor.execute_batch(batch_items)?;
+    let summary = crate::batch::BatchExecutor::summarize(&results);
+
+    crate::batch::BatchExecutor::display_results(&results, &summary);
+
+    if args.json
+        || args
+            .format
+            .as_deref()
+            .map(|f| f.eq_ignore_ascii_case("json"))
+            .unwrap_or(false)
+    {
+        let output = serde_json::json!({
+            "results": results,
+            "summary": summary,
+        });
+        println!("\n{}", serde_json::to_string_pretty(&output)?);
+    }
+
+    logging::log_execution_complete(&format!(
+        "{}/{} passed",
+        summary.passed, summary.total
+    ));
+
+    if summary.failed > 0 || summary.errors > 0 {
+        anyhow::bail!(
+            "Batch execution completed with failures: {} failed, {} errors",
+            summary.failed,
+            summary.errors
+        );
+    }
+
+    Ok(())
+}
+
+
 /// Execute the run command.
 pub fn run(args: RunArgs, _verbosity: Verbosity) -> Result<()> {
+    // Handle batch execution mode
+    if let Some(batch_file) = &args.batch_args {
+        return run_batch(&args, batch_file);
+    }
+
     if args.dry_run {
         return run_dry_run(&args);
     }
