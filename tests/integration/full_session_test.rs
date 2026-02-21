@@ -41,5 +41,19 @@ fn test_full_debug_session_walkthrough() {
 
     // Capture output
     let output = child.wait_with_output().expect("Failed to wait for output");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    
+    // Assertions
     assert!(output.status.success());
+    
+    // Verify breakpoint hit and stepping mode started
+    assert!(stdout.contains("Instruction Stepping Mode"), "Did not enter stepping mode");
+    assert!(stdout.contains("Stepped to next instruction"), "Step command failed");
+    
+    // Verify instruction info display
+    assert!(stdout.contains("Current Instruction Details"), "Info command failed");
+    
+    // Verify execution completion and result
+    assert!(stdout.contains("Execution completed"), "Did not complete execution");
+    assert!(stdout.contains("Result: \"I64(1)\""), "Unexpected return value");
 }
