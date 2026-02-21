@@ -21,6 +21,7 @@ pub struct ContractExecutor {
     env: Env,
     contract_address: Address,
     mock_registry: Arc<Mutex<MockRegistry>>,
+    timeout_secs: u64,
 }
 
 impl ContractExecutor {
@@ -39,7 +40,12 @@ impl ContractExecutor {
             env,
             contract_address,
             mock_registry: Arc::new(Mutex::new(MockRegistry::default())),
+            timeout_secs: 30,
         })
+    }
+
+    pub fn set_timeout(&mut self, secs: u64) {
+        self.timeout_secs = secs;
     }
 
     /// Execute a contract function.
@@ -59,6 +65,24 @@ impl ContractExecutor {
         } else {
             SorobanVec::from_slice(&self.env, &parsed_args)
         };
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        if self.timeout_secs > 0 {
+            let timeout_secs = self.timeout_secs;
+            std::thread::spawn(move || {
+                match rx.recv_timeout(std::time::Duration::from_secs(timeout_secs)) {
+                    Ok(_) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        eprintln!(
+                            "\nError: Contract execution timed out after {} seconds.",
+                            timeout_secs
+                        );
+                        std::process::exit(124);
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {}
+                }
+            });
+        }
 
         // Call the contract
         let res = match self.env.try_invoke_contract::<Val, InvokeError>(
@@ -97,6 +121,8 @@ impl ContractExecutor {
                 .into())
             }
         };
+
+        let _ = tx.send(());
 
         // Display budget usage and warnings
         crate::inspector::BudgetInspector::display(self.env.host());
