@@ -1,8 +1,8 @@
 /// Represents the current state of the debugger
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DebugState {
-    current_function: Option<String>,
-    step_count: usize,
+    pub current_function: Option<String>,
+    pub step_count: usize,
 }
 
 impl DebugState {

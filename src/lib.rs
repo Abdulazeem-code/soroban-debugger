@@ -2,6 +2,9 @@ pub mod cli;
 pub mod debugger;
 pub mod runtime;
 pub mod inspector;
+pub mod protocol;
+pub mod server;
+pub mod client;
 pub mod ui;
 pub mod utils;
 

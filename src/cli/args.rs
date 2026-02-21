@@ -47,6 +47,30 @@ pub struct RunArgs {
     /// Enable verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Start in server mode
+    #[arg(long)]
+    pub server: bool,
+
+    /// Port to listen on or connect to
+    #[arg(long, default_value = "9229")]
+    pub port: u16,
+
+    /// Connect to a remote debugger (address:port)
+    #[arg(long)]
+    pub remote: Option<String>,
+
+    /// Authentication token
+    #[arg(long)]
+    pub token: Option<String>,
+
+    /// Path to TLS certificate file
+    #[arg(long)]
+    pub tls_cert: Option<std::path::PathBuf>,
+
+    /// Path to TLS key file
+    #[arg(long)]
+    pub tls_key: Option<std::path::PathBuf>,
 }
 
 #[derive(Parser)]

@@ -47,7 +47,41 @@ pub fn run(args: RunArgs) -> Result<()> {
     // Create debugger engine
     let mut engine = DebuggerEngine::new(executor, args.breakpoint);
 
-    // Execute with debugging
+    if args.server {
+        let token = args.token.clone().ok_or_else(|| anyhow::anyhow!("Token required for server mode"))?;
+        let server = crate::server::debug_server::DebugServer::new(
+            engine, 
+            token, 
+            args.tls_cert.as_deref(), 
+            args.tls_key.as_deref()
+        )?;
+        
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(server.run(args.port))?;
+        return Ok(());
+    }
+
+    if let Some(remote_addr) = args.remote {
+        let token = args.token.clone().ok_or_else(|| anyhow::anyhow!("Token required for remote mode"))?;
+        let rt = tokio::runtime::Runtime::new()?;
+        // Use TLS if either cert or key is provided, or if we want to default to TLS if available.
+        // For client-side, we might just want a flag --use-tls.
+        // Let's assume for now if they provide ANY tls arg or if we want to detect it.
+        let use_tls = args.tls_cert.is_some() || args.tls_key.is_some();
+        let mut client = rt.block_on(crate::client::remote_client::RemoteClient::connect(&remote_addr, token, use_tls))?;
+        
+        println!("\nConnected to remote debugger.");
+        let request = crate::protocol::DebugRequest::Execute {
+            function: args.function.clone(),
+            args: args.args.clone(),
+        };
+        
+        let response = rt.block_on(client.send_request(request))?;
+        println!("Remote Response: {:?}", response);
+        return Ok(());
+    }
+
+    // Execute locally with debugging
     println!("\n--- Execution Start ---\n");
     let result = engine.execute(&args.function, parsed_args.as_deref())?;
     println!("\n--- Execution Complete ---\n");
