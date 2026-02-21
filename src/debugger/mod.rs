@@ -7,7 +7,7 @@ pub mod state;
 pub mod stepper;
 pub mod timeline;
 
-pub use breakpoint::BreakpointManager;
+pub use breakpoint::{BreakpointManager, Condition, Operator};
 pub use engine::DebuggerEngine;
 pub use error_db::{ErrorDatabase, ErrorExplanation};
 pub use instruction_pointer::{InstructionPointer, StepMode};

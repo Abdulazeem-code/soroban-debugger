@@ -24,12 +24,25 @@ pub struct DebuggerEngine {
 
 impl DebuggerEngine {
     /// Create a new debugger engine.
-    pub fn new(executor: ContractExecutor, initial_breakpoints: Vec<String>) -> Self {
+    pub fn new(executor: ContractExecutor, initial_breakpoints: Vec<String>, conditions: Vec<String>) -> Self {
         let mut breakpoints = BreakpointManager::new();
 
-        for bp in initial_breakpoints {
-            breakpoints.add(&bp);
-            info!("Breakpoint set at function: {}", bp);
+        for (i, bp) in initial_breakpoints.iter().enumerate() {
+            let condition = conditions.get(i).and_then(|c| {
+                match BreakpointManager::parse_condition(c) {
+                    Ok(cond) => Some(cond),
+                    Err(e) => {
+                        warn!("Invalid condition for breakpoint {}: {}", bp, e);
+                        None
+                    }
+                }
+            });
+            breakpoints.add(bp, condition);
+            if let Some(ref c) = breakpoints.list().last().and_then(|b| b.condition.as_ref()) {
+                info!("Conditional breakpoint set at function: {} (if {})", bp, c);
+            } else {
+                info!("Breakpoint set at function: {}", bp);
+            }
         }
 
         Self {
@@ -95,7 +108,8 @@ impl DebuggerEngine {
             state.call_stack_mut().push(function.to_string(), None);
         }
 
-        if self.breakpoints.should_break(function) {
+        let initial_storage = self.executor.get_storage_snapshot().unwrap_or_default();
+        if self.breakpoints.should_break(function, &initial_storage, args) {
             self.pause_at_function(function);
         }
 
@@ -250,7 +264,7 @@ impl DebuggerEngine {
             // Check if we should pause at this point
             // For now, pause at function changes or if we hit the beginning
             let is_beginning = self.timeline.current_pos() == 0;
-            if is_beginning || self.breakpoints.should_break(&snapshot.function) {
+            if is_beginning || self.breakpoints.should_break(&snapshot.function, &snapshot.storage, None) {
                 self.paused = true;
                 break;
             }

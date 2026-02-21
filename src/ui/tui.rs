@@ -119,8 +119,25 @@ impl DebuggerUI {
                 if parts.len() < 2 {
                     tracing::warn!("breakpoint set without function name");
                 } else {
-                    self.engine.breakpoints_mut().add(parts[1]);
-                    crate::logging::log_breakpoint_set(parts[1]);
+                    let func = parts[1];
+                    let condition = if parts.len() > 2 {
+                        let cond_str = parts[2..].join(" ");
+                        match crate::debugger::breakpoint::BreakpointManager::parse_condition(&cond_str) {
+                            Ok(c) => Some(c),
+                            Err(e) => {
+                                println!("Invalid condition: {}", e);
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    };
+                    self.engine.breakpoints_mut().add(func, condition);
+                    if let Some(ref c) = self.engine.breakpoints_mut().list().iter().find(|b| b.function == func).and_then(|b| b.condition.as_ref()) {
+                        println!("Conditional breakpoint set: {} (if {})", func, c);
+                    } else {
+                        crate::logging::log_breakpoint_set(func);
+                    }
                 }
             }
             "list-breaks" => {
@@ -182,7 +199,7 @@ impl DebuggerUI {
         println!("  storage            Show tracked storage view");
         println!("  stack              Show call stack");
         println!("  budget             Show budget usage");
-        println!("  break <func>       Set breakpoint");
+        println!("  break <func> [cond] Set breakpoint with optional condition");
         println!("  list-breaks        List breakpoints");
         println!("  clear <func>       Clear breakpoint");
         println!("  help               Show this help");

@@ -147,7 +147,7 @@ pub fn run(args: RunArgs, _verbosity: Verbosity) -> Result<()> {
 
     if let Some(n) = args.repeat {
         logging::log_repeat_execution(&args.function, n as usize);
-        let runner = RepeatRunner::new(wasm_bytes, args.breakpoint, initial_storage);
+        let runner = RepeatRunner::new(wasm_bytes, args.breakpoint, args.condition, initial_storage);
         let stats = runner.run(&args.function, parsed_args.as_deref(), n)?;
         stats.display();
         return Ok(());
@@ -168,7 +168,7 @@ pub fn run(args: RunArgs, _verbosity: Verbosity) -> Result<()> {
         executor.set_mock_specs(&args.mock)?;
     }
 
-    let mut engine = DebuggerEngine::new(executor, args.breakpoint);
+    let mut engine = DebuggerEngine::new(executor, args.breakpoint, args.condition);
 
     if args.instruction_debug {
         print_info("Enabling instruction-level debugging...");
@@ -369,7 +369,7 @@ fn run_dry_run(args: &RunArgs) -> Result<()> {
 
     let storage_snapshot = executor.snapshot_storage()?;
 
-    let mut engine = DebuggerEngine::new(executor, args.breakpoint.clone());
+    let mut engine = DebuggerEngine::new(executor, args.breakpoint.clone(), args.condition.clone());
 
     print_info("\n[DRY RUN] --- Execution Start ---\n");
     let result = engine.execute(&args.function, parsed_args.as_deref())?;
@@ -435,7 +435,7 @@ pub fn interactive(args: InteractiveArgs, _verbosity: Verbosity) -> Result<()> {
     }
 
     let executor = ContractExecutor::new(wasm_bytes)?;
-    let engine = DebuggerEngine::new(executor, vec![]);
+    let engine = DebuggerEngine::new(executor, vec![], vec![]);
 
     print_info("\nStarting interactive mode...");
     print_info("Type 'help' for available commands\n");
@@ -474,7 +474,7 @@ pub fn tui(args: TuiArgs, _verbosity: Verbosity) -> Result<()> {
         executor.set_initial_storage(storage)?;
     }
 
-    let mut engine = DebuggerEngine::new(executor, args.breakpoint);
+    let mut engine = DebuggerEngine::new(executor, args.breakpoint, args.condition);
 
     // Pre-execute so live data is available immediately in the dashboard
     let _ = engine.execute(&args.function, parsed_args.as_deref());

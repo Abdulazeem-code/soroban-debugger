@@ -125,6 +125,10 @@ pub struct RunArgs {
     #[arg(short, long)]
     pub breakpoint: Vec<String>,
 
+    /// Condition for the last specified breakpoint (e.g., 'amount > 100')
+    #[arg(long)]
+    pub condition: Vec<String>,
+
     /// Network snapshot file to load before execution
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
@@ -376,6 +380,10 @@ pub struct TuiArgs {
     /// Set breakpoints at function names
     #[arg(short, long)]
     pub breakpoint: Vec<String>,
+
+    /// Conditions for breakpoints
+    #[arg(long)]
+    pub condition: Vec<String>,
 
     /// Network snapshot file to load before execution
     #[arg(long)]
