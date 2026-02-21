@@ -1,1 +1,0 @@
-C:\Users\Administrator\desktop\soroban-debugger\examples\sample_contract\target\wasm32-unknown-unknown\release\sample_contract.wasm: C:\Users\Administrator\desktop\soroban-debugger\examples\sample_contract\src\lib.rs

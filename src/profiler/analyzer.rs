@@ -102,6 +102,7 @@ impl GasOptimizer {
             self.executor.execute(function_name, args)
         }));
 
+
         // Always finish the session so we still capture metrics up to failure.
         let metrics = session.finish();
         let total_cpu = metrics.cpu_instructions;
@@ -142,16 +143,9 @@ impl GasOptimizer {
                 // Return a normal error instead of crashing the whole CLI
                 return Err(anyhow::anyhow!(
             "Contract execution panicked (likely budget exceeded). Try smaller inputs or optimize allocations."
-        )
-        .into());
+        ));
             }
         }
-
-        let metrics = session.finish();
-
-        let total_cpu = metrics.cpu_instructions;
-        let total_memory = metrics.memory_bytes;
-        let wall_time_ms = metrics.wall_time.as_millis();
 
         let profile = FunctionProfile {
             name: function_name.to_string(),

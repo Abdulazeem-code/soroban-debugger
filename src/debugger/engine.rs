@@ -79,7 +79,7 @@ impl DebuggerEngine {
         info!("Executing function: {}", function);
 
         if let Ok(mut state) = self.state.lock() {
-            state.set_current_function(function.to_string());
+            state.set_current_function(function.to_string(), args.map(str::to_string));
             state.call_stack_mut().clear();
             state.call_stack_mut().push(function.to_string(), None);
         }
@@ -248,7 +248,7 @@ impl DebuggerEngine {
         self.paused = true;
 
         if let Ok(mut state) = self.state.lock() {
-            state.set_current_function(function.to_string());
+            state.set_current_function(function.to_string(), None);
             state.call_stack().display();
         }
     }

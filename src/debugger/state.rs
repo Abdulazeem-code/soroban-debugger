@@ -6,6 +6,7 @@ use crate::runtime::instruction::Instruction;
 #[derive(Debug, Clone)]
 pub struct DebugState {
     current_function: Option<String>,
+    current_args: Option<String>,
     step_count: usize,
     instruction_pointer: InstructionPointer,
     current_instruction: Option<Instruction>,
@@ -19,6 +20,7 @@ impl DebugState {
     pub fn new() -> Self {
         Self {
             current_function: None,
+            current_args: None,
             step_count: 0,
             instruction_pointer: InstructionPointer::new(),
             current_instruction: None,
@@ -28,14 +30,22 @@ impl DebugState {
         }
     }
 
-    pub fn set_current_function(&mut self, function: String) {
+    /// Set the current function being executed
+    pub fn set_current_function(&mut self, function: String, args: Option<String>) {
         self.current_function = Some(function);
+        self.current_args = args;
     }
 
     pub fn current_function(&self) -> Option<&str> {
         self.current_function.as_deref()
     }
 
+    /// Get current function arguments
+    pub fn current_args(&self) -> Option<&str> {
+        self.current_args.as_deref()
+    }
+
+    /// Increment step count
     pub fn increment_step(&mut self) {
         self.step_count += 1;
     }
@@ -136,6 +146,7 @@ impl DebugState {
 
     pub fn reset(&mut self) {
         self.current_function = None;
+        self.current_args = None;
         self.step_count = 0;
         self.instruction_pointer.reset();
         self.current_instruction = self.instructions.first().cloned();

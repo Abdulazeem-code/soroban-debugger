@@ -1,12 +1,15 @@
+use crate::runtime::mocking::MockRegistry;
 use crate::utils::ArgumentParser;
+use crate::{runtime::mocking::MockCallLogEntry, runtime::mocking::MockContractDispatcher};
 use crate::{DebuggerError, Result};
 
-use anyhow::anyhow;
-use serde_json::Value;
+
 use soroban_env_host::{DiagnosticLevel, Host};
 use soroban_sdk::{Address, Env, InvokeError, Symbol, Val, Vec as SorobanVec};
 use soroban_sdk::{IntoVal, String as SorobanString};
 use std::collections::HashMap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 
 /// Storage snapshot for dry-run rollback.
@@ -19,6 +22,9 @@ pub struct StorageSnapshot {
 pub struct ContractExecutor {
     env: Env,
     contract_address: Address,
+    mock_registry: Arc<Mutex<MockRegistry>>,
+    wasm_bytes: Vec<u8>,
+    timeout_secs: u64,
 }
 
 impl ContractExecutor {
@@ -36,16 +42,29 @@ impl ContractExecutor {
         Ok(Self {
             env,
             contract_address,
+            mock_registry: Arc::new(Mutex::new(MockRegistry::default())),
+            wasm_bytes: wasm,
+            timeout_secs: 30,
         })
+    }
+
+    pub fn set_timeout(&mut self, secs: u64) {
+        self.timeout_secs = secs;
     }
 
     /// Execute a contract function.
     pub fn execute(&self, function: &str, args: Option<&str>) -> Result<String> {
         info!("Executing function: {}", function);
 
+        // Validate function existence
+        let exported_functions = crate::utils::wasm::parse_functions(&self.wasm_bytes)?;
+        if !exported_functions.contains(&function.to_string()) {
+            return Err(DebuggerError::InvalidFunction(function.to_string()).into());
+        }
+
+        // Convert function name to Symbol
         let func_symbol = Symbol::new(&self.env, function);
 
-        // Parse arguments (JSON array -> Vec<Val>)
         let parsed_args = if let Some(args_json) = args {
             self.parse_args(args_json)?
         } else {
@@ -58,7 +77,26 @@ impl ContractExecutor {
             SorobanVec::from_slice(&self.env, &parsed_args)
         };
 
-        match self.env.try_invoke_contract::<Val, InvokeError>(
+        let (tx, rx) = std::sync::mpsc::channel();
+        if self.timeout_secs > 0 {
+            let timeout_secs = self.timeout_secs;
+            std::thread::spawn(move || {
+                match rx.recv_timeout(std::time::Duration::from_secs(timeout_secs)) {
+                    Ok(_) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        eprintln!(
+                            "\nError: Contract execution timed out after {} seconds.",
+                            timeout_secs
+                        );
+                        std::process::exit(124);
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {}
+                }
+            });
+        }
+
+        // Call the contract
+        let res = match self.env.try_invoke_contract::<Val, InvokeError>(
             &self.contract_address,
             &func_symbol,
             args_vec,
@@ -67,39 +105,73 @@ impl ContractExecutor {
             Ok(Err(conv_err)) => Err(DebuggerError::ExecutionError(format!(
                 "Return value conversion failed: {:?}",
                 conv_err
-            ))
-            .into()),
+            ))),
+            Ok(Ok(val)) => {
+                info!("Function executed successfully");
+                Ok(format!("{:?}", val))
+            }
+            Ok(Err(conv_err)) => {
+                warn!("Return value conversion failed: {:?}", conv_err);
+                Err(DebuggerError::ExecutionError(format!(
+                    "Return value conversion failed: {:?}",
+                    conv_err
+                ))
+                .into())
+            }
             Err(Ok(inv_err)) => match inv_err {
                 InvokeError::Contract(code) => {
                     warn!("Contract returned error code: {}", code);
-                    Err(
-                        DebuggerError::ExecutionError(format!("Contract error code: {}", code))
-                            .into(),
-                    )
+                    Err(DebuggerError::ExecutionError(format!(
+                        "The contract returned an error code: {}. This typically indicates a business logic failure (e.g. `panic!` or `require!`).",
+                        code
+                    )))
                 }
                 InvokeError::Abort => {
                     warn!("Contract execution aborted");
-                    Err(
-                        DebuggerError::ExecutionError("Contract execution aborted".to_string())
-                            .into(),
-                    )
+                    Err(DebuggerError::ExecutionError(
+                        "Contract execution was aborted. This could be due to a trap, budget exhaustion, or an explicit abort call."
+                            .to_string(),
+                    ))
                 }
             },
             Err(Err(inv_err)) => {
                 warn!("Invocation error conversion failed: {:?}", inv_err);
                 Err(DebuggerError::ExecutionError(format!(
-                    "Invocation error conversion failed: {:?}",
+                    "Invocation failed with internal error: {:?}",
                     inv_err
-                ))
-                .into())
+                )))
             }
-        }
+        };
+
+        let _ = tx.send(());
+
+        // Display budget usage and warnings
+        crate::inspector::BudgetInspector::display(self.env.host());
+
+        res
     }
 
     /// Set initial storage state.
     pub fn set_initial_storage(&mut self, _storage_json: String) -> Result<()> {
         info!("Setting initial storage (not yet implemented)");
         Ok(())
+    }
+
+    pub fn set_mock_specs(&mut self, specs: &[String]) -> Result<()> {
+        let registry = MockRegistry::from_cli_specs(&self.env, specs)?;
+        self.set_mock_registry(registry)
+    }
+
+    pub fn set_mock_registry(&mut self, registry: MockRegistry) -> Result<()> {
+        self.mock_registry = Arc::new(Mutex::new(registry));
+        self.install_mock_dispatchers()
+    }
+
+    pub fn get_mock_call_log(&self) -> Vec<MockCallLogEntry> {
+        match self.mock_registry.lock() {
+            Ok(registry) => registry.calls().to_vec(),
+            Err(_) => Vec::new(),
+        }
     }
 
     /// Get the host instance.
@@ -155,40 +227,39 @@ impl ContractExecutor {
         })
     }
 
-    /// Convert a JSON value into a Soroban `Val` (minimal supported types)
-    fn json_to_val(&self, v: &Value) -> Result<Val> {
-        // Signed integers
-        if let Some(n) = v.as_i64() {
-            if n >= 0 && n <= u32::MAX as i64 {
-                return Ok((n as u32).into_val(&self.env));
+    fn install_mock_dispatchers(&self) -> Result<()> {
+        let ids = match self.mock_registry.lock() {
+            Ok(registry) => registry.mocked_contract_ids(),
+            Err(_) => {
+                return Err(DebuggerError::ExecutionError(
+                    "Mock registry lock poisoned".to_string(),
+                )
+                .into())
             }
-            return Ok(n.into_val(&self.env));
+        };
+
+        for contract_id in ids {
+            let address = self.parse_contract_address(&contract_id)?;
+            let dispatcher =
+                MockContractDispatcher::new(contract_id.clone(), Arc::clone(&self.mock_registry))
+                    .boxed();
+            self.env
+                .host()
+                .register_test_contract(address.to_object(), dispatcher)?;
         }
 
-        // Unsigned integers (serde may parse as u64)
-        if let Some(n) = v.as_u64() {
-            if n <= u32::MAX as u64 {
-                return Ok((n as u32).into_val(&self.env));
-            }
-            if n <= i64::MAX as u64 {
-                return Ok((n as i64).into_val(&self.env));
-            }
-            return Err(anyhow!("Integer too large for supported types: {n}"));
+        Ok(())
+    }
+    fn parse_contract_address(&self, contract_id: &str) -> Result<Address> {
+        let parsed = catch_unwind(AssertUnwindSafe(|| {
+            Address::from_str(&self.env, contract_id)
+        }));
+        match parsed {
+            Ok(addr) => Ok(addr),
+            Err(_) => Err(DebuggerError::InvalidArguments(format!(
+                "Invalid contract id in --mock: {contract_id}"
+            ))
+            .into()),
         }
-
-        // Bool
-        if let Some(b) = v.as_bool() {
-            return Ok(b.into_val(&self.env));
-        }
-
-        // String
-        if let Some(s) = v.as_str() {
-            // Minimal: treat as Soroban String.
-            // (Later we can add Address parsing if string matches a strkey.)
-            let ss = SorobanString::from_str(&self.env, s);
-            return Ok(ss.into_val(&self.env));
-        }
-
-        Err(anyhow!("Unsupported arg type: {v}"))
     }
 }
