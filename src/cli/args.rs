@@ -197,6 +197,10 @@ pub struct RunArgs {
     /// Path to JSON file containing array of argument sets for batch execution
     #[arg(long)]
     pub batch_args: Option<PathBuf>,
+
+    /// Watch the WASM file for changes and automatically re-run
+    #[arg(long)]
+    pub watch: bool,
 }
 
 impl RunArgs {
@@ -353,7 +357,6 @@ pub struct CompletionsArgs {
     pub shell: Shell,
 }
 
-
 /// Arguments for the TUI dashboard subcommand
 #[derive(Parser)]
 pub struct TuiArgs {
@@ -423,4 +426,3 @@ pub struct SymbolicArgs {
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 }
-
