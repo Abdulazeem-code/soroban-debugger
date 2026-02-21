@@ -52,3 +52,14 @@ fn test_run_command_repeat_flag() {
         .stdout(predicate::str::contains("--repeat"))
         .stdout(predicate::str::contains("stress testing"));
 }
+
+#[test]
+fn test_compare_help_command() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_soroban-debug"));
+    cmd.arg("compare").arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("TRACE_A"))
+        .stdout(predicate::str::contains("TRACE_B"))
+        .stdout(predicate::str::contains("--output"));
+}
