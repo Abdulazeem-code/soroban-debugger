@@ -78,6 +78,42 @@ fn main() -> Result<()> {
         Commands::Completions(_args) => {
             eprintln!("Completions command not yet implemented");
             return Ok(());
+        Some(Commands::Compare(args)) => soroban_debugger::cli::commands::compare(args),
+        Some(Commands::Completions(args)) => {
+            let mut cmd = Cli::command();
+            generate(args.shell, &mut cmd, "soroban-debug", &mut io::stdout());
+            Ok(())
+        }
+        Some(Commands::Profile(args)) => {
+            soroban_debugger::cli::commands::profile(args)?;
+            Ok(())
+        }
+        Some(Commands::Symbolic(args)) => {
+            soroban_debugger::cli::commands::symbolic(args, verbosity)
+        }
+        None => {
+            if let Some(path) = cli.list_functions {
+                return soroban_debugger::cli::commands::inspect(
+                    soroban_debugger::cli::args::InspectArgs {
+                        contract: path,
+                        wasm: None,
+                        functions: true,
+                        metadata: false,
+                    },
+                    verbosity,
+                );
+            }
+            if cli.budget_trend {
+                soroban_debugger::cli::commands::show_budget_trend(
+                    cli.trend_contract.as_deref(),
+                    cli.trend_function.as_deref(),
+                )
+            } else {
+                let mut cmd = Cli::command();
+                cmd.print_help()?;
+                println!();
+                Ok(())
+            }
         }
         Commands::Compare(args) => soroban_debugger::cli::commands::compare(args),
     };

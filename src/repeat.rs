@@ -154,6 +154,7 @@ fn truncate(s: &str, max_len: usize) -> String {
 pub struct RepeatRunner {
     wasm_bytes: Vec<u8>,
     breakpoints: Vec<String>,
+    conditions: Vec<String>,
     initial_storage: Option<String>,
 }
 
@@ -161,11 +162,13 @@ impl RepeatRunner {
     pub fn new(
         wasm_bytes: Vec<u8>,
         breakpoints: Vec<String>,
+        conditions: Vec<String>,
         initial_storage: Option<String>,
     ) -> Self {
         Self {
             wasm_bytes,
             breakpoints,
+            conditions,
             initial_storage,
         }
     }
@@ -190,7 +193,7 @@ impl RepeatRunner {
                 executor.set_initial_storage(storage.clone())?;
             }
 
-            let mut engine = DebuggerEngine::new(executor, self.breakpoints.clone());
+            let mut engine = DebuggerEngine::new(executor, self.breakpoints.clone(), self.conditions.clone());
 
             let start = Instant::now();
             let result = engine.execute(function, args)?;

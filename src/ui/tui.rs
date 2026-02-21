@@ -64,6 +64,42 @@ impl DebuggerUI {
                 self.engine.continue_execution()?;
                 tracing::info!("Execution continuing");
             }
+            "sb" | "step-back" => {
+                let stepped = self.engine.step_back()?;
+                if stepped {
+                    println!("Stepped back");
+                    self.inspect();
+                } else {
+                    println!("Already at beginning of history");
+                }
+            }
+            "cb" | "continue-back" => {
+                self.engine.continue_back()?;
+                println!("Continued back");
+                self.inspect();
+            }
+            "goto" => {
+                if parts.len() < 2 {
+                    println!("Usage: goto <step>");
+                } else if let Ok(step) = parts[1].parse::<usize>() {
+                    self.engine.goto_step(step)?;
+                    println!("Jumped to step {}", step);
+                    self.inspect();
+                } else {
+                    println!("Invalid step number");
+                }
+            }
+            "timeline" | "tl" => {
+                let timeline = self.engine.get_timeline();
+                println!("\n=== Execution Timeline ===");
+                for (i, snap) in timeline.get_history().iter().enumerate() {
+                    let current = if i == timeline.current_pos() { "▶" } else { " " };
+                    println!(
+                        "{} {:>3}: Step {:>3} | fn: {:<15} | IP: {:>3}",
+                        current, i, snap.step, snap.function, snap.instruction_index
+                    );
+                }
+            }
             "i" | "inspect" => {
                 self.inspect();
             }
@@ -80,8 +116,25 @@ impl DebuggerUI {
                 if parts.len() < 2 {
                     tracing::warn!("breakpoint set without function name");
                 } else {
-                    self.engine.breakpoints_mut().add(parts[1]);
-                    crate::logging::log_breakpoint_set(parts[1]);
+                    let func = parts[1];
+                    let condition = if parts.len() > 2 {
+                        let cond_str = parts[2..].join(" ");
+                        match crate::debugger::breakpoint::BreakpointManager::parse_condition(&cond_str) {
+                            Ok(c) => Some(c),
+                            Err(e) => {
+                                println!("Invalid condition: {}", e);
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    };
+                    self.engine.breakpoints_mut().add(func, condition);
+                    if let Some(ref c) = self.engine.breakpoints_mut().list().iter().find(|b| b.function == func).and_then(|b| b.condition.as_ref()) {
+                        println!("Conditional breakpoint set: {} (if {})", func, c);
+                    } else {
+                        crate::logging::log_breakpoint_set(func);
+                    }
                 }
             }
             "list-breaks" => {
@@ -142,5 +195,21 @@ impl DebuggerUI {
     /// Print help message
     fn print_help(&self) {
         tracing::info!("Interactive debugger commands: step, continue, inspect, storage, stack, budget, break, list-breaks, clear, help, quit");
+        println!("Interactive debugger commands:");
+        println!("  step | s           Step execution");
+        println!("  step-back | sb     Step backward in time");
+        println!("  continue | c       Continue execution");
+        println!("  continue-back | cb Continue execution backwards");
+        println!("  goto <step>        Jump to specific step");
+        println!("  timeline | tl      Show execution timeline");
+        println!("  inspect | i        Show current state");
+        println!("  storage            Show tracked storage view");
+        println!("  stack              Show call stack");
+        println!("  budget             Show budget usage");
+        println!("  break <func> [cond] Set breakpoint with optional condition");
+        println!("  list-breaks        List breakpoints");
+        println!("  clear <func>       Clear breakpoint");
+        println!("  help               Show this help");
+        println!("  quit | q           Exit debugger");
     }
 }

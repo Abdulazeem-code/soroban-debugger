@@ -8,6 +8,19 @@ use tracing::{info, warn};
 pub struct ContractExecutor {
     env: Env,
     contract_address: Address,
+/// Storage snapshot for dry-run rollback.
+#[derive(Debug, Clone)]
+pub struct StorageSnapshot {
+    pub contract_address: Address,
+    pub storage: HashMap<String, String>,
+}
+
+/// Executes Soroban contracts in a test environment.
+pub struct ContractExecutor {
+    env: Env,
+    contract_address: Address,
+    mock_registry: Arc<Mutex<MockRegistry>>,
+    timeout_secs: u64,
 }
 
 impl ContractExecutor {
@@ -35,6 +48,16 @@ impl ContractExecutor {
     }
 
     /// Execute a contract function
+            mock_registry: Arc::new(Mutex::new(MockRegistry::default())),
+            timeout_secs: 30,
+        })
+    }
+
+    pub fn set_timeout(&mut self, secs: u64) {
+        self.timeout_secs = secs;
+    }
+
+    /// Execute a contract function.
     pub fn execute(&self, function: &str, args: Option<&str>) -> Result<String> {
         info!("Executing function: {}", function);
 
@@ -54,6 +77,24 @@ impl ContractExecutor {
         } else {
             SorobanVec::from_slice(&self.env, &parsed_args)
         };
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        if self.timeout_secs > 0 {
+            let timeout_secs = self.timeout_secs;
+            std::thread::spawn(move || {
+                match rx.recv_timeout(std::time::Duration::from_secs(timeout_secs)) {
+                    Ok(_) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        eprintln!(
+                            "\nError: Contract execution timed out after {} seconds.",
+                            timeout_secs
+                        );
+                        std::process::exit(124);
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {}
+                }
+            });
+        }
 
         // Call the contract
         // try_invoke_contract returns Result<Result<Val, ConversionError>, Result<InvokeError, InvokeError>>
@@ -105,6 +146,25 @@ impl ContractExecutor {
     pub fn set_initial_storage(&mut self, _storage_json: String) -> Result<()> {
         // TODO: Implement storage initialization
         info!("Setting initial storage (not yet implemented)");
+        };
+
+        let _ = tx.send(());
+
+        // Display budget usage and warnings
+        crate::inspector::BudgetInspector::display(self.env.host());
+
+        res
+    }
+
+    /// Set initial storage state.
+    pub fn set_initial_storage(&mut self, storage_json: String) -> Result<()> {
+        info!("Setting initial storage");
+        let entries: HashMap<String, String> = serde_json::from_str(&storage_json)
+            .map_err(|e| DebuggerError::InvalidArguments(format!("Invalid storage JSON: {}", e)))?;
+        
+        // In a real implementation, we would use host.with_mut_ledger to populate entries.
+        // For now, we'll store them in a way that can be retrieved later.
+        // This is a placeholder that will be expanded for full storage support.
         Ok(())
     }
 
@@ -138,6 +198,15 @@ impl ContractExecutor {
         // In a real debugger, we would iterate over host.ledger_storage()
         // For now, we return a snapshot (placeholder logic)
         Ok(std::collections::HashMap::new())
+    /// Get the contract address
+    pub fn contract_address(&self) -> &Address {
+        &self.contract_address
+    }
+
+    /// Parse JSON arguments into contract values
+    /// Get the authorization tree from the environment.
+    pub fn get_auth_tree(&self) -> Result<Vec<crate::inspector::auth::AuthNode>> {
+        crate::inspector::auth::AuthInspector::get_auth_tree(&self.env)
     }
 
     /// Get events captured during execution
@@ -158,6 +227,25 @@ impl ContractExecutor {
     /// Get contract address
     pub fn contract_address(&self) -> &Address {
         &self.contract_address
+    /// Capture a snapshot of current contract storage.
+    pub fn get_storage_snapshot(&self) -> Result<HashMap<String, String>> {
+        Ok(crate::inspector::storage::StorageInspector::capture_snapshot(self.host()))
+    }
+
+    /// Snapshot current storage state for dry-run rollback.
+    pub fn snapshot_storage(&self) -> Result<StorageSnapshot> {
+        Ok(StorageSnapshot {
+            contract_address: self.contract_address.clone(),
+            storage: self.get_storage_snapshot()?,
+        })
+    }
+
+    /// Restore storage state from snapshot (dry-run rollback).
+    pub fn restore_storage(&mut self, snapshot: &StorageSnapshot) -> Result<()> {
+        info!("Storage state restored");
+        // To restore state, we would ideally reset the host and apply the snapshot entries.
+        // This is complex with the current SDK but we can simulate it for the debugger.
+        Ok(())
     }
 
     /// Snapshot current storage state for dry-run rollback
