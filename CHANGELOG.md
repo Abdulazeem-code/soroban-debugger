@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+- `--contract-path` renamed to `--contract` (with backward compatibility)
+- `--fn` renamed to `--function` (with backward compatibility)
+- `--params` renamed to `--args` (with backward compatibility)
+- `--snapshot` renamed to `--network-snapshot` (with backward compatibility)
+
 ## [0.1.0] - 2026-02-19
 
 ### Added

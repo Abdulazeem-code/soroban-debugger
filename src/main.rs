@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
 use clap_complete::generate;
-use soroban_debugger::cli::{Cli, Commands, Verbosity};
+use soroban_debugger::cli::{Cli, Commands, ConsolidateDeprecations, Verbosity};
 use soroban_debugger::ui::formatter::Formatter;
 use std::io;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -45,12 +45,25 @@ fn initialize_tracing(verbosity: Verbosity) {
 fn main() -> Result<()> {
     Formatter::configure_colors_from_env();
 
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
     let verbosity = cli.verbosity();
 
     initialize_tracing(verbosity);
 
     let config = soroban_debugger::config::Config::load_or_default();
+
+    let warnings = match &mut cli.command {
+        Some(Commands::Run(args)) => args.consolidate_deprecations(),
+        Some(Commands::Interactive(args)) => args.consolidate_deprecations(),
+        Some(Commands::Inspect(args)) => args.consolidate_deprecations(),
+        Some(Commands::Optimize(args)) => args.consolidate_deprecations(),
+        Some(Commands::Profile(args)) => args.consolidate_deprecations(),
+        _ => Vec::new(),
+    };
+
+    for warning in warnings {
+        eprintln!("{}", Formatter::warning(warning));
+    }
 
     let result = match cli.command {
         Some(Commands::Run(mut args)) => {
