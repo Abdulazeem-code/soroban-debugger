@@ -42,10 +42,59 @@ fn initialize_tracing(verbosity: Verbosity) {
     }
 }
 
+fn handle_deprecations(cli: &mut Cli) {
+    match &mut cli.command {
+        Some(Commands::Run(args)) => {
+            if let Some(wasm) = args.wasm.take() {
+                eprintln!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                args.contract = wasm;
+            }
+            if let Some(snapshot) = args.snapshot.take() {
+                eprintln!("{}", Formatter::warning("Warning: --snapshot is deprecated. Please use --network-snapshot instead."));
+                args.network_snapshot = Some(snapshot);
+            }
+        }
+        Some(Commands::Interactive(args)) => {
+            if let Some(wasm) = args.wasm.take() {
+                eprintln!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                args.contract = wasm;
+            }
+            if let Some(snapshot) = args.snapshot.take() {
+                eprintln!("{}", Formatter::warning("Warning: --snapshot is deprecated. Please use --network-snapshot instead."));
+                args.network_snapshot = Some(snapshot);
+            }
+        }
+        Some(Commands::Inspect(args)) => {
+            if let Some(wasm) = args.wasm.take() {
+                eprintln!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                args.contract = wasm;
+            }
+        }
+        Some(Commands::Optimize(args)) => {
+            if let Some(wasm) = args.wasm.take() {
+                eprintln!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                args.contract = wasm;
+            }
+            if let Some(snapshot) = args.snapshot.take() {
+                eprintln!("{}", Formatter::warning("Warning: --snapshot is deprecated. Please use --network-snapshot instead."));
+                args.network_snapshot = Some(snapshot);
+            }
+        }
+        Some(Commands::Profile(args)) => {
+            if let Some(wasm) = args.wasm.take() {
+                eprintln!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                args.contract = wasm;
+            }
+        }
+        _ => {}
+    }
+}
+
 fn main() -> Result<()> {
     Formatter::configure_colors_from_env();
 
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+    handle_deprecations(&mut cli);
     let verbosity = cli.verbosity();
 
     initialize_tracing(verbosity);

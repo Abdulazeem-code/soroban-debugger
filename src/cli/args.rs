@@ -98,6 +98,10 @@ pub struct RunArgs {
     #[arg(short, long)]
     pub contract: PathBuf,
 
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
+
     /// Function name to execute
     #[arg(short, long)]
     pub function: String,
@@ -117,6 +121,10 @@ pub struct RunArgs {
     /// Network snapshot file to load before execution
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
+
+    /// Deprecated: use --network-snapshot instead
+    #[arg(long, hide = true, alias = "snapshot")]
+    pub snapshot: Option<PathBuf>,
 
     /// Enable verbose output
     #[arg(short, long)]
@@ -220,9 +228,17 @@ pub struct InteractiveArgs {
     #[arg(short, long)]
     pub contract: PathBuf,
 
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
+
     /// Network snapshot file to load before starting interactive session
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
+
+    /// Deprecated: use --network-snapshot instead
+    #[arg(long, hide = true, alias = "snapshot")]
+    pub snapshot: Option<PathBuf>,
 }
 
 impl InteractiveArgs {
@@ -236,6 +252,10 @@ pub struct InspectArgs {
     /// Path to the contract WASM file
     #[arg(short, long)]
     pub contract: PathBuf,
+
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
 
     /// Show exported functions
     #[arg(long)]
@@ -251,6 +271,10 @@ pub struct OptimizeArgs {
     /// Path to the contract WASM file
     #[arg(short, long)]
     pub contract: PathBuf,
+
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
 
     /// Function name to analyze (can be specified multiple times)
     #[arg(short, long)]
@@ -271,6 +295,10 @@ pub struct OptimizeArgs {
     /// Network snapshot file to load before analysis
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
+
+    /// Deprecated: use --network-snapshot instead
+    #[arg(long, hide = true, alias = "snapshot")]
+    pub snapshot: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -323,6 +351,10 @@ pub struct ProfileArgs {
     /// Path to the contract WASM file
     #[arg(short, long)]
     pub contract: PathBuf,
+
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
 
     /// Function name to execute
     #[arg(short, long)]
