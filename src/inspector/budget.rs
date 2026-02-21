@@ -113,7 +113,7 @@ impl MemoryTracker {
             self.peak_memory = current_memory;
         }
 
-        if let Some(last_allocation) = self.allocations.back() {
+        if let Some(_last_allocation) = self.allocations.back() {
             let last_total = self.initial_memory + self.total_allocated_bytes;
             if current_memory > last_total {
                 let delta = current_memory - last_total;
