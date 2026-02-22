@@ -6,7 +6,7 @@ use std::{fs, path::Path};
 use crate::{
     utils::wasm::{
         extract_contract_metadata, get_module_info,
-        parse_function_signatures,
+        parse_function_signatures, parse_functions,
     },
     InspectArgs, Result,
 };
@@ -52,12 +52,14 @@ struct FullReport {
     size_bytes: usize,
     module_info: crate::utils::wasm::ModuleInfo,
     functions: Vec<String>,
+    signatures: Vec<crate::utils::wasm::FunctionSignature>,
     metadata: crate::utils::wasm::ContractMetadata,
 }
 
 fn print_json_report(path: &Path, wasm_bytes: &[u8]) -> Result<()> {
     let info = get_module_info(wasm_bytes)?;
     let functions = parse_functions(wasm_bytes)?;
+    let signatures = parse_function_signatures(wasm_bytes)?;
     let metadata = extract_contract_metadata(wasm_bytes)?;
 
     let report = FullReport {
@@ -65,6 +67,7 @@ fn print_json_report(path: &Path, wasm_bytes: &[u8]) -> Result<()> {
         size_bytes: wasm_bytes.len(),
         module_info: info,
         functions,
+        signatures,
         metadata,
     };
 
@@ -133,7 +136,16 @@ fn print_report(path: &Path, wasm_bytes: &[u8]) -> Result<()> {
     // ── function signatures ───────────────────────────────────────────────────
     section_header("Exported Functions");
     if signatures.is_empty() {
-        println!("  (no contractspecv0 section found)");
+        let functions = parse_functions(wasm_bytes).unwrap_or_default();
+        if functions.is_empty() {
+            println!("  (no contractspecv0 section found and no functions exported)");
+        } else {
+            println!("  (no contractspecv0 section found)");
+            println!("  Bare functions exported:");
+            for f in functions {
+                println!("    {}", f);
+            }
+        }
     } else {
         let name_w = signatures.iter().map(|s| s.name.len()).max().unwrap_or(8);
         println!("  {:<name_w$}  Signature", "Function", name_w = name_w);
@@ -147,8 +159,8 @@ fn print_report(path: &Path, wasm_bytes: &[u8]) -> Result<()> {
                 .collect();
 
             let ret = match &sig.return_type {
-                Some(t) if t != "Void" => format!(" -> {t}"),
-                _                      => String::new(),
+                Some(t) => format!(" -> {t}"),
+                None    => " -> Void".to_string(),
             };
 
             println!(

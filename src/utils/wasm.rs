@@ -498,14 +498,14 @@ pub fn extract_contract_metadata(wasm_bytes: &[u8]) -> Result<ContractMetadata> 
 // ─── contract spec / function signatures ─────────────────────────────────────
 
 /// A single function parameter: name and its Soroban type as a display string.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FunctionParam {
     pub name: String,
     pub type_name: String,
 }
 
 /// Full signature for one exported contract function.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FunctionSignature {
     pub name: String,
     pub params: Vec<FunctionParam>,
