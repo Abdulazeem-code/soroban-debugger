@@ -53,21 +53,29 @@ impl ContractExecutor {
         );
         pb.set_message("Loading WASM contract...");
 
+        // Use a guard to ensure progress bar is always cleared
+        struct ProgressGuard(ProgressBar);
+        impl Drop for ProgressGuard {
+            fn drop(&mut self) {
+                self.0.finish_and_clear();
+            }
+        }
+        let _guard = ProgressGuard(pb);
+
         let env = Env::default();
         env.host()
             .set_diagnostic_level(DiagnosticLevel::Debug)
             .expect("Failed to set diagnostic level");
 
         // Simulate progress during WASM registration
-        pb.set_position(50);
-        pb.set_message("Registering contract...");
+        _guard.0.set_position(50);
+        _guard.0.set_message("Registering contract...");
 
         let contract_address = env.register(wasm.as_slice(), ());
 
         // Complete the progress bar
-        pb.set_position(100);
-        pb.set_message("Contract loaded successfully");
-        pb.finish_and_clear();
+        _guard.0.set_position(100);
+        _guard.0.set_message("Contract loaded successfully");
 
         Ok(Self {
             env,
