@@ -728,29 +728,6 @@ pub struct RemoteArgs {
 }
 
 #[derive(Parser)]
-pub struct AnalyzeArgs {
-    /// Path to the contract WASM file
-    #[arg(short, long)]
-    pub contract: PathBuf,
-
-    /// Function name to execute for dynamic analysis (optional)
-    #[arg(short, long)]
-    pub function: Option<String>,
-
-    /// Function arguments as JSON array for dynamic analysis (optional)
-    #[arg(short, long)]
-    pub args: Option<String>,
-
-    /// Initial storage state as JSON object (optional)
-    #[arg(short, long)]
-    pub storage: Option<String>,
-
-    /// Output format (text, json)
-    #[arg(long, default_value = "text")]
-    pub format: String,
-}
-
-#[derive(Parser)]
 pub struct ScenarioArgs {
     /// Path to the scenario TOML file
     #[arg(long)]
