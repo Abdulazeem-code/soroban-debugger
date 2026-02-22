@@ -332,11 +332,13 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
     if args.show_auth {
         let auth_tree = engine.executor().get_auth_tree()?;
         if args.json {
+            // JSON mode: print the auth tree inline (will also be included in
+            // the combined JSON object further below).
             let json_output = crate::inspector::auth::AuthInspector::to_json(&auth_tree)?;
             logging::log_display(json_output, logging::LogLevel::Info);
         } else {
-            logging::log_display("\n--- Authorizations ---", logging::LogLevel::Info);
-            crate::inspector::auth::AuthInspector::display(&auth_tree);
+            print_info("\n--- Authorization Tree ---");
+            crate::inspector::auth::AuthInspector::display_with_summary(&auth_tree);
         }
         json_auth = Some(auth_tree);
     }
@@ -411,7 +413,7 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
             );
         }
         if let Some(auth_tree) = json_auth {
-            output["auth"] = serde_json::to_value(auth_tree).unwrap_or(serde_json::Value::Null);
+            output["auth"] = crate::inspector::auth::AuthInspector::to_json_value(&auth_tree);
         }
         if !mock_calls.is_empty() {
             output["mock_calls"] = serde_json::Value::Array(
