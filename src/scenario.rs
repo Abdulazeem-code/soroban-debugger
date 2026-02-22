@@ -23,21 +23,30 @@ pub struct ScenarioStep {
 }
 
 pub fn run_scenario(args: ScenarioArgs, _verbosity: Verbosity) -> Result<()> {
-    println!("{}", Formatter::info(format!("Loading scenario file: {:?}", args.scenario)));
+    println!(
+        "{}",
+        Formatter::info(format!("Loading scenario file: {:?}", args.scenario))
+    );
     let scenario_content = fs::read_to_string(&args.scenario).map_err(|e| {
-        DebuggerError::FileError(format!("Failed to read scenario file {:?}: {}", args.scenario, e))
+        DebuggerError::FileError(format!(
+            "Failed to read scenario file {:?}: {}",
+            args.scenario, e
+        ))
     })?;
 
-    let scenario: Scenario = toml::from_str(&scenario_content).map_err(|e| {
-        DebuggerError::FileError(format!("Failed to parse scenario TOML: {}", e))
-    })?;
+    let scenario: Scenario = toml::from_str(&scenario_content)
+        .map_err(|e| DebuggerError::FileError(format!("Failed to parse scenario TOML: {}", e)))?;
 
-    println!("{}", Formatter::info(format!("Loading contract: {:?}", args.contract)));
+    println!(
+        "{}",
+        Formatter::info(format!("Loading contract: {:?}", args.contract))
+    );
     logging::log_loading_contract(&args.contract.to_string_lossy());
 
-    let wasm_file = crate::utils::wasm::load_wasm(&args.contract)
-        .map_err(|e| DebuggerError::WasmLoadError(format!("Failed to load WASM {:?}: {}", args.contract, e)))?;
-    
+    let wasm_file = crate::utils::wasm::load_wasm(&args.contract).map_err(|e| {
+        DebuggerError::WasmLoadError(format!("Failed to load WASM {:?}: {}", args.contract, e))
+    })?;
+
     let mut executor = ContractExecutor::new(wasm_file.bytes)?;
 
     if let Some(storage_json) = &args.storage {
@@ -47,14 +56,23 @@ pub fn run_scenario(args: ScenarioArgs, _verbosity: Verbosity) -> Result<()> {
         executor.set_initial_storage(serde_json::to_string(&storage).unwrap())?;
     }
 
-    println!("{}", Formatter::success(format!("Running {} scenario steps...\n", scenario.steps.len())));
+    println!(
+        "{}",
+        Formatter::success(format!(
+            "Running {} scenario steps...\n",
+            scenario.steps.len()
+        ))
+    );
 
     let mut engine = DebuggerEngine::new(executor, vec![]);
     let mut all_passed = true;
 
     for (i, step) in scenario.steps.iter().enumerate() {
         let step_label = step.name.as_deref().unwrap_or(&step.function);
-        println!("{}", Formatter::info(format!("Step {}: {}", i + 1, step_label)));
+        println!(
+            "{}",
+            Formatter::info(format!("Step {}: {}", i + 1, step_label))
+        );
 
         let parsed_args = if let Some(args_json) = &step.args {
             Some(crate::cli::commands::parse_args(args_json)?)
@@ -72,15 +90,27 @@ pub fn run_scenario(args: ScenarioArgs, _verbosity: Verbosity) -> Result<()> {
                 println!("  Result: {}", res);
                 if let Some(expected) = &step.expected_return {
                     if res.trim() == expected.trim() {
-                        println!("  {}", Formatter::success("✓ Return value assertion passed"));
+                        println!(
+                            "  {}",
+                            Formatter::success("✓ Return value assertion passed")
+                        );
                     } else {
-                        println!("  {}", Formatter::error(format!("✗ Return value assertion failed! Expected '{}', got '{}'", expected, res)));
+                        println!(
+                            "  {}",
+                            Formatter::error(format!(
+                                "✗ Return value assertion failed! Expected '{}', got '{}'",
+                                expected, res
+                            ))
+                        );
                         step_passed = false;
                     }
                 }
             }
             Err(e) => {
-                println!("  {}", Formatter::error(format!("✗ Execution failed: {}", e)));
+                println!(
+                    "  {}",
+                    Formatter::error(format!("✗ Execution failed: {}", e))
+                );
                 step_passed = false;
             }
         }
@@ -93,13 +123,25 @@ pub fn run_scenario(args: ScenarioArgs, _verbosity: Verbosity) -> Result<()> {
                 for (key, expected_val) in expected_storage {
                     if let Some(actual_val) = snapshot.get(key) {
                         if actual_val.trim() == expected_val.trim() {
-                            println!("  {}", Formatter::success(format!("✓ Storage assertion passed for key '{}'", key)));
+                            println!(
+                                "  {}",
+                                Formatter::success(format!(
+                                    "✓ Storage assertion passed for key '{}'",
+                                    key
+                                ))
+                            );
                         } else {
                             println!("  {}", Formatter::error(format!("✗ Storage assertion failed for key '{}'! Expected '{}', got '{}'", key, expected_val, actual_val)));
                             storage_passed = false;
                         }
                     } else {
-                        println!("  {}", Formatter::error(format!("✗ Storage assertion failed! Key '{}' not found", key)));
+                        println!(
+                            "  {}",
+                            Formatter::error(format!(
+                                "✗ Storage assertion failed! Key '{}' not found",
+                                key
+                            ))
+                        );
                         storage_passed = false;
                     }
                 }
@@ -110,16 +152,25 @@ pub fn run_scenario(args: ScenarioArgs, _verbosity: Verbosity) -> Result<()> {
         }
 
         if step_passed {
-            println!("{}", Formatter::success(format!("Step {} passed.\n", i + 1)));
+            println!(
+                "{}",
+                Formatter::success(format!("Step {} passed.\n", i + 1))
+            );
         } else {
-            println!("{}", Formatter::warning(format!("Step {} failed.\n", i + 1)));
+            println!(
+                "{}",
+                Formatter::warning(format!("Step {} failed.\n", i + 1))
+            );
             all_passed = false;
             break; // Stop execution on first failure
         }
     }
 
     if all_passed {
-        println!("{}", Formatter::success("All scenario steps passed successfully!"));
+        println!(
+            "{}",
+            Formatter::success("All scenario steps passed successfully!")
+        );
         Ok(())
     } else {
         Err(DebuggerError::ExecutionError("Scenario execution failed".into()).into())
@@ -149,7 +200,7 @@ mod tests {
 
         let scenario: Scenario = toml::from_str(toml_str).unwrap();
         assert_eq!(scenario.steps.len(), 2);
-        
+
         assert_eq!(scenario.steps[0].name.as_deref(), Some("Init"));
         assert_eq!(scenario.steps[0].function, "init");
         assert_eq!(scenario.steps[0].args.as_deref(), Some("[\"admin\", 10]"));
@@ -160,6 +211,14 @@ mod tests {
         assert_eq!(scenario.steps[1].function, "get");
         assert!(scenario.steps[1].args.is_none());
         assert_eq!(scenario.steps[1].expected_return.as_deref(), Some("1"));
-        assert_eq!(scenario.steps[1].expected_storage.as_ref().unwrap().get("Counter").map(|s| s.as_str()), Some("1"));
+        assert_eq!(
+            scenario.steps[1]
+                .expected_storage
+                .as_ref()
+                .unwrap()
+                .get("Counter")
+                .map(|s| s.as_str()),
+            Some("1")
+        );
     }
 }
