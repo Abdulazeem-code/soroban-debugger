@@ -5,6 +5,14 @@ use soroban_debugger::ui::formatter::Formatter;
 use std::io;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+fn verbosity_to_level(v: Verbosity) -> u8 {
+    match v {
+        Verbosity::Quiet => 0,
+        Verbosity::Normal => 1,
+        Verbosity::Verbose => 2,
+    }
+}
+
 fn initialize_tracing(verbosity: Verbosity) {
     let log_level = verbosity.to_log_level();
     let fallback_filter = format!("soroban_debugger={}", log_level);
@@ -126,6 +134,7 @@ fn main() -> miette::Result<()> {
     handle_deprecations(&mut cli);
     let verbosity = cli.verbosity();
 
+    Formatter::set_verbosity(verbosity_to_level(verbosity));
     initialize_tracing(verbosity);
 
     let config = soroban_debugger::config::Config::load_or_default();

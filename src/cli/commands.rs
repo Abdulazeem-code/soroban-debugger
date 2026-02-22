@@ -18,15 +18,33 @@ use std::fs;
 use textplots::{Chart, Plot, Shape};
 
 fn print_info(message: impl AsRef<str>) {
-    println!("{}", Formatter::info(message));
+    if !Formatter::is_quiet() {
+        println!("{}", Formatter::info(message));
+    }
 }
 
 fn print_success(message: impl AsRef<str>) {
-    println!("{}", Formatter::success(message));
+    if !Formatter::is_quiet() {
+        println!("{}", Formatter::success(message));
+    }
 }
 
 fn print_warning(message: impl AsRef<str>) {
-    println!("{}", Formatter::warning(message));
+    if !Formatter::is_quiet() {
+        println!("{}", Formatter::warning(message));
+    }
+}
+
+/// Print the final contract return value — always shown regardless of verbosity.
+fn print_result(message: impl AsRef<str>) {
+    println!("{}", Formatter::success(message));
+}
+
+/// Print verbose-only detail — only shown when --verbose is active.
+fn print_verbose(message: impl AsRef<str>) {
+    if Formatter::is_verbose() {
+        println!("{}", Formatter::info(message));
+    }
 }
 
 /// Execute batch mode with parallel execution
@@ -139,9 +157,9 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
     ));
 
     if args.verbose || verbosity == Verbosity::Verbose {
-        print_info(format!("SHA-256: {}", wasm_hash));
+        print_verbose(format!("SHA-256: {}", wasm_hash));
         if args.expected_hash.is_some() {
-            print_success("Checksum verified ✓");
+            print_verbose("Checksum verified ✓");
         }
     }
 
@@ -225,7 +243,7 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
     let result = engine.execute(&args.function, parsed_args.as_deref())?;
     let storage_after = engine.executor().get_storage_snapshot()?;
     print_success("\n--- Execution Complete ---\n");
-    print_success(format!("Result: {:?}", result));
+    print_result(format!("Result: {:?}", result));
     logging::log_execution_complete(&result);
 
     // Generate test if requested
@@ -468,9 +486,9 @@ fn run_dry_run(args: &RunArgs) -> Result<()> {
     ));
 
     if args.verbose {
-        print_info(format!("[DRY RUN] SHA-256: {}", wasm_hash));
+        print_verbose(format!("[DRY RUN] SHA-256: {}", wasm_hash));
         if args.expected_hash.is_some() {
-            print_success("[DRY RUN] Checksum verified ✓");
+            print_verbose("[DRY RUN] Checksum verified ✓");
         }
     }
 
@@ -511,7 +529,7 @@ fn run_dry_run(args: &RunArgs) -> Result<()> {
     print_info("\n[DRY RUN] --- Execution Start ---\n");
     let result = engine.execute(&args.function, parsed_args.as_deref())?;
     print_success("\n[DRY RUN] --- Execution Complete ---\n");
-    print_success(format!("[DRY RUN] Result: {:?}", result));
+    print_result(format!("[DRY RUN] Result: {:?}", result));
     if !args.mock.is_empty() {
         display_mock_call_log(&engine.executor().get_mock_call_log());
     }
@@ -575,9 +593,9 @@ pub fn interactive(args: InteractiveArgs, _verbosity: Verbosity) -> Result<()> {
     ));
 
     if _verbosity == Verbosity::Verbose {
-        print_info(format!("SHA-256: {}", wasm_hash));
+        print_verbose(format!("SHA-256: {}", wasm_hash));
         if args.expected_hash.is_some() {
-            print_success("Checksum verified ✓");
+            print_verbose("Checksum verified ✓");
         }
     }
 
@@ -666,9 +684,9 @@ pub fn inspect(args: InspectArgs, _verbosity: Verbosity) -> Result<()> {
     }
 
     if _verbosity == Verbosity::Verbose {
-        print_info(format!("SHA-256: {}", wasm_hash));
+        print_verbose(format!("SHA-256: {}", wasm_hash));
         if args.expected_hash.is_some() {
-            print_success("Checksum verified ✓");
+            print_verbose("Checksum verified ✓");
         }
     }
 
@@ -907,9 +925,9 @@ pub fn optimize(args: OptimizeArgs, _verbosity: Verbosity) -> Result<()> {
     ));
 
     if _verbosity == Verbosity::Verbose {
-        print_info(format!("SHA-256: {}", wasm_hash));
+        print_verbose(format!("SHA-256: {}", wasm_hash));
         if args.expected_hash.is_some() {
-            print_success("Checksum verified ✓");
+            print_verbose("Checksum verified ✓");
         }
     }
 
@@ -1363,17 +1381,17 @@ pub fn replay(args: ReplayArgs, verbosity: Verbosity) -> Result<()> {
     }
 
     if verbosity == Verbosity::Verbose {
-        print_info("\n--- Call Sequence (Original) ---");
+        print_verbose("\n--- Call Sequence (Original) ---");
         for (i, call) in original_trace.call_sequence.iter().enumerate() {
             let indent = "  ".repeat(call.depth as usize);
             if let Some(args) = &call.args {
-                print_info(format!("{}{}. {} ({})", indent, i, call.function, args));
+                print_verbose(format!("{}{}. {} ({})", indent, i, call.function, args));
             } else {
-                print_info(format!("{}{}. {}", indent, i, call.function));
+                print_verbose(format!("{}{}. {}", indent, i, call.function));
             }
 
             if is_partial_replay && i >= replay_steps {
-                print_warning(format!("{}... (stopped at step {})", indent, replay_steps));
+                print_verbose(format!("{}... (stopped at step {})", indent, replay_steps));
                 break;
             }
         }
