@@ -1,6 +1,6 @@
 use crate::cli::args::{
-    CompareArgs, InspectArgs, InteractiveArgs, OptimizeArgs, ProfileArgs, RemoteArgs, ReplayArgs,
-    RunArgs, ServerArgs, SymbolicArgs, TuiArgs, UpgradeCheckArgs, Verbosity,
+    AnalyzeArgs, CompareArgs, InspectArgs, InteractiveArgs, OptimizeArgs, ProfileArgs, RemoteArgs,
+    ReplayArgs, RunArgs, ServerArgs, SymbolicArgs, TuiArgs, UpgradeCheckArgs, Verbosity,
 };
 use crate::debugger::engine::DebuggerEngine;
 use crate::debugger::instruction_pointer::StepMode;
@@ -747,6 +747,84 @@ pub fn inspect(args: InspectArgs, _verbosity: Verbosity) -> Result<()> {
     }
 
     println!("\n{}", "=".repeat(54));
+    Ok(())
+}
+
+/// Execute the analyze command.
+pub fn analyze(args: AnalyzeArgs, _verbosity: Verbosity) -> Result<()> {
+    print_info(format!("Analyzing contract: {:?}", args.contract));
+    logging::log_loading_contract(&args.contract.to_string_lossy());
+
+    let wasm_file = crate::utils::wasm::load_wasm(&args.contract)
+        .with_context(|| format!("Failed to read WASM file: {:?}", args.contract))?;
+    let wasm_bytes = wasm_file.bytes;
+
+    print_success(format!(
+        "Contract loaded successfully ({} bytes)",
+        wasm_bytes.len()
+    ));
+
+    let mut executor = None;
+    let mut trace = None;
+
+    if let Some(function) = &args.function {
+        print_info(format!(
+            "\nRunning dynamic analysis for function: {}",
+            function
+        ));
+        let mut exec = ContractExecutor::new(wasm_bytes.clone())?;
+        if let Some(storage_json) = &args.storage {
+            let storage = parse_storage(storage_json)?;
+            exec.set_initial_storage(storage)?;
+        }
+
+        let parsed_args = if let Some(args_json) = &args.args {
+            Some(parse_args(args_json)?)
+        } else {
+            None
+        };
+
+        // Execute function to generate trace
+        let _ = exec.execute(function, parsed_args.as_deref());
+
+        // Simple trace from diagnostic events
+        let diag_events = exec.get_diagnostic_events()?;
+        let tr: Vec<String> = diag_events.iter().map(|e| format!("{:?}", e)).collect();
+
+        executor = Some(exec);
+        trace = Some(tr);
+    }
+
+    let analyzer = crate::analyzer::security::SecurityAnalyzer::new();
+    let report = analyzer.analyze(&wasm_bytes, executor.as_ref(), trace.as_deref())?;
+
+    if args.format.eq_ignore_ascii_case("json") {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|e| DebuggerError::FileError(
+                format!("Failed to serialize report: {}", e)
+            ))?
+        );
+    } else {
+        println!("\n{}", "=".repeat(54));
+        println!("  Soroban Security Vulnerability Report");
+        println!("{}", "=".repeat(54));
+
+        if report.findings.is_empty() {
+            println!("\n  ✅ No vulnerabilities detected.");
+        } else {
+            for finding in &report.findings {
+                println!(
+                    "\n  [{:?}] {} - {}",
+                    finding.severity, finding.rule_id, finding.location
+                );
+                println!("  Description : {}", finding.description);
+                println!("  Remediation : {}", finding.remediation);
+            }
+        }
+        println!("\n{}", "=".repeat(54));
+    }
+
     Ok(())
 }
 

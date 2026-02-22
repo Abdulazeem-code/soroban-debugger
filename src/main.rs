@@ -145,6 +145,7 @@ fn main() -> miette::Result<()> {
         }
         Some(Commands::Server(args)) => soroban_debugger::cli::commands::server(args),
         Some(Commands::Remote(args)) => soroban_debugger::cli::commands::remote(args, verbosity),
+        Some(Commands::Analyze(args)) => soroban_debugger::cli::commands::analyze(args, verbosity),
         None => {
             if let Some(path) = cli.list_functions {
                 return soroban_debugger::cli::commands::inspect(

@@ -110,6 +110,9 @@ pub enum Commands {
 
     /// Connect to remote debug server
     Remote(RemoteArgs),
+
+    /// Analyze contract for security vulnerabilities
+    Analyze(AnalyzeArgs),
 }
 
 #[derive(Parser)]
@@ -538,4 +541,27 @@ pub struct RemoteArgs {
     /// Function arguments as JSON array
     #[arg(short, long)]
     pub args: Option<String>,
+}
+
+#[derive(Parser)]
+pub struct AnalyzeArgs {
+    /// Path to the contract WASM file
+    #[arg(short, long)]
+    pub contract: PathBuf,
+
+    /// Function name to execute for dynamic analysis (optional)
+    #[arg(short, long)]
+    pub function: Option<String>,
+
+    /// Function arguments as JSON array for dynamic analysis (optional)
+    #[arg(short, long)]
+    pub args: Option<String>,
+
+    /// Initial storage state as JSON object (optional)
+    #[arg(short, long)]
+    pub storage: Option<String>,
+
+    /// Output format (text, json)
+    #[arg(long, default_value = "text")]
+    pub format: String,
 }
