@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
+use indicatif::{ProgressBar, ProgressStyle};
 
 /// Represents a captured execution trace.
 #[derive(Debug, Clone)]
@@ -42,12 +43,31 @@ impl ContractExecutor {
     pub fn new(wasm: Vec<u8>) -> Result<Self> {
         info!("Initializing contract executor");
 
+        // Create progress bar for WASM loading
+        let pb = ProgressBar::new(100);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg}")
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+        pb.set_message("Loading WASM contract...");
+
         let env = Env::default();
         env.host()
             .set_diagnostic_level(DiagnosticLevel::Debug)
             .expect("Failed to set diagnostic level");
 
+        // Simulate progress during WASM registration
+        pb.set_position(50);
+        pb.set_message("Registering contract...");
+
         let contract_address = env.register(wasm.as_slice(), ());
+
+        // Complete the progress bar
+        pb.set_position(100);
+        pb.set_message("Contract loaded successfully");
+        pb.finish_and_clear();
 
         Ok(Self {
             env,
