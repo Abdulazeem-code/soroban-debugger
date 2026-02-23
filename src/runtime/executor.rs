@@ -325,7 +325,9 @@ impl ContractExecutor {
             .env
             .host()
             .with_mut_storage(|storage| Ok(storage.clone()))
-            .map_err(|e| DebuggerError::ExecutionError(format!("Failed to snapshot storage: {:?}", e)))?;
+            .map_err(|e| {
+                DebuggerError::ExecutionError(format!("Failed to snapshot storage: {:?}", e))
+            })?;
         Ok(StorageSnapshot { storage })
     }
 
@@ -337,7 +339,9 @@ impl ContractExecutor {
                 *storage = snapshot.storage.clone();
                 Ok(())
             })
-            .map_err(|e| DebuggerError::ExecutionError(format!("Failed to restore storage: {:?}", e)))?;
+            .map_err(|e| {
+                DebuggerError::ExecutionError(format!("Failed to restore storage: {:?}", e))
+            })?;
         info!("Storage state restored (dry-run rollback)");
         Ok(())
     }
@@ -407,5 +411,3 @@ impl ContractExecutor {
         }
     }
 }
-
-
