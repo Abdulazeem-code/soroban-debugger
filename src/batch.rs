@@ -157,6 +157,14 @@ impl BatchExecutor {
             crate::logging::LogLevel::Info,
         );
         crate::logging::log_display("-".repeat(80), crate::logging::LogLevel::Info);
+    /// Display results in a formatted way
+    pub fn display_results(results: &[BatchResult], summary: &BatchSummary) {
+        use crate::ui::formatter::Formatter;
+
+        crate::logging::log_display("", crate::logging::LogLevel::Info);
+        crate::logging::log_display("=".repeat(80), crate::logging::LogLevel::Info);
+        crate::logging::log_display("  Batch Execution Results", crate::logging::LogLevel::Info);
+        crate::logging::log_display("=".repeat(80), crate::logging::LogLevel::Info);
 
         for result in results {
             let status = if result.passed {
@@ -180,6 +188,44 @@ impl BatchExecutor {
                     result.duration_ms,
                     truncate_for_table(expected, 18),
                 ),
+            crate::logging::log_display(
+                format!("\n{} {}", status, label),
+                crate::logging::LogLevel::Info,
+            );
+            crate::logging::log_display(
+                format!("  Args: {}", result.args),
+                crate::logging::LogLevel::Info,
+            );
+
+            if result.success {
+                crate::logging::log_display(
+                    format!("  Result: {}", result.result),
+                    crate::logging::LogLevel::Info,
+                );
+                if let Some(expected) = &result.expected {
+                    crate::logging::log_display(
+                        format!("  Expected: {}", expected),
+                        crate::logging::LogLevel::Info,
+                    );
+                    if !result.passed {
+                        crate::logging::log_display(
+                            format!(
+                                "  {}",
+                                Formatter::warning("Result does not match expected value")
+                            ),
+                            crate::logging::LogLevel::Warn,
+                        );
+                    }
+                }
+            } else if let Some(error) = &result.error {
+                crate::logging::log_display(
+                    format!("  Error: {}", Formatter::error(error)),
+                    crate::logging::LogLevel::Error,
+                );
+            }
+
+            crate::logging::log_display(
+                format!("  Duration: {}ms", result.duration_ms),
                 crate::logging::LogLevel::Info,
             );
         }
