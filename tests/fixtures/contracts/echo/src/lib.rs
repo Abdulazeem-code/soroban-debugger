@@ -6,5 +6,7 @@ pub struct Echo;
 
 #[contractimpl]
 impl Echo {
-    pub fn echo(_env: Env, v: Val) -> Val { v }
+    pub fn echo(_env: Env, v: Val) -> Val {
+        v
+    }
 }

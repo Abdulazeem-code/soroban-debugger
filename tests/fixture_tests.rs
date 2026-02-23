@@ -140,8 +140,7 @@ fn test_fixture_registration_and_invocation() {
 
     let wasm_bytes = fs::read(fixture_path).unwrap();
     let env = Env::default();
-    let contract_id =
-        env.register(&*wasm_bytes, ());
+    let contract_id = env.register(&*wasm_bytes, ());
 
     // Call increment
     let first: i64 = env.invoke_contract(

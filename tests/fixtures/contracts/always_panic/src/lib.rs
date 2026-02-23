@@ -6,5 +6,7 @@ pub struct AlwaysPanic;
 
 #[contractimpl]
 impl AlwaysPanic {
-    pub fn panic(_env: Env) { panic!("p") }
+    pub fn panic(_env: Env) {
+        panic!("p")
+    }
 }
