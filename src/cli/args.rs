@@ -294,6 +294,14 @@ pub struct RunArgs {
     /// TTL warning threshold in ledger sequence numbers (default: 1000)
     #[arg(long, default_value = "1000")]
     pub ttl_warning_threshold: u32,
+
+    /// Path to file where execution results should be saved
+    #[arg(long, value_name = "FILE")]
+    pub save_output: Option<PathBuf>,
+
+    /// Append to output file instead of overwriting (used with --save-output)
+    #[arg(long)]
+    pub append: bool,
 }
 
 impl RunArgs {
