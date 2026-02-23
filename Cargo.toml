@@ -2,7 +2,7 @@
 members = [
     ".",
     "crates/soroban-debug-mock",
-    "examples/mock-usage", "test_contract",
+    "examples/mock-usage",
 ]
 
 [package]

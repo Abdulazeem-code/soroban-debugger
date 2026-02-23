@@ -426,10 +426,10 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
             "alerts": storage_diff.triggered_alerts,
         });
 
-        if let Some(events) = json_events {
+        if let Some(ref events) = json_events {
             output["events"] = serde_json::Value::Array(
                 events
-                    .into_iter()
+                    .iter()
                     .map(|event| {
                         serde_json::json!({
                             "contract_id": event.contract_id,
@@ -471,7 +471,114 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
         );
     }
 
+    if let Some(trace_path) = &args.trace_output {
+        print_info(format!("\nExporting execution trace to: {:?}", trace_path));
+
+        let args_str = parsed_args.as_ref().map(|a| serde_json::to_string(a).unwrap_or_default());
+        
+        let trace_events = json_events.unwrap_or_else(|| engine.executor().get_events().unwrap_or_default());
+
+        let trace = build_execution_trace(
+            &args.function,
+            args.contract.to_string_lossy().as_ref(),
+            args_str,
+            &storage_after,
+            &result,
+            budget,
+            engine.executor(),
+            &trace_events,
+            usize::MAX,
+        );
+
+        if let Ok(json) = trace.to_json() {
+            if let Err(e) = std::fs::write(trace_path, json) {
+                print_warning(format!("Failed to write trace to {:?}: {}", trace_path, e));
+            } else {
+                print_success(format!("Successfully exported trace to {:?}", trace_path));
+            }
+        }
+    }
+
     Ok(())
+}
+
+fn build_execution_trace(
+    function: &str,
+    contract_path: &str,
+    args_str: Option<String>,
+    storage_after: &std::collections::HashMap<String, String>,
+    result: &str,
+    budget: crate::inspector::budget::BudgetInfo,
+    executor: &ContractExecutor,
+    events: &[crate::inspector::events::ContractEvent],
+    replay_until: usize,
+) -> crate::compare::ExecutionTrace {
+    let mut trace_storage = std::collections::BTreeMap::new();
+    for (k, v) in storage_after {
+        if let Ok(val) = serde_json::from_str(v) {
+            trace_storage.insert(k.clone(), val);
+        } else {
+            trace_storage.insert(k.clone(), serde_json::Value::String(v.clone()));
+        }
+    }
+
+    let return_val = serde_json::from_str(result).unwrap_or_else(|_| serde_json::Value::String(result.to_string()));
+
+    let mut call_sequence = Vec::new();
+    let mut depth = 0;
+    
+    call_sequence.push(crate::compare::trace::CallEntry {
+        function: function.to_string(),
+        args: args_str.clone(),
+        depth,
+    });
+
+    if let Ok(diag_events) = executor.get_diagnostic_events() {
+        for event in diag_events {
+            // Stop building trace if we hit the replay limit
+            if call_sequence.len() >= replay_until {
+                break;
+            }
+
+            let event_str = format!("{:?}", event);
+            if event_str.contains("ContractCall") || (event_str.contains("call") && event.contract_id.is_some()) {
+                depth += 1;
+                call_sequence.push(crate::compare::trace::CallEntry {
+                    function: "nested_call".to_string(),
+                    args: None,
+                    depth,
+                });
+            } else if (event_str.contains("ContractReturn") || event_str.contains("return")) && depth > 0 {
+                depth -= 1;
+            }
+        }
+    }
+
+    let mut trace_events = Vec::new();
+    for e in events {
+        trace_events.push(crate::compare::trace::EventEntry {
+            contract_id: e.contract_id.clone(),
+            topics: e.topics.clone(),
+            data: Some(e.data.clone()),
+        });
+    }
+
+    crate::compare::ExecutionTrace {
+        label: Some(format!("Execution of {} on {}", function, contract_path)),
+        contract: Some(contract_path.to_string()),
+        function: Some(function.to_string()),
+        args: args_str,
+        storage: trace_storage,
+        budget: Some(crate::compare::trace::BudgetTrace {
+            cpu_instructions: budget.cpu_instructions,
+            memory_bytes: budget.memory_bytes,
+            cpu_limit: None,
+            memory_limit: None,
+        }),
+        return_value: Some(return_val),
+        call_sequence,
+        events: trace_events,
+    }
 }
 
 /// Execute run command in dry-run mode.
@@ -1344,134 +1451,41 @@ pub fn replay(args: ReplayArgs, verbosity: Verbosity) -> Result<()> {
     print_success(format!("Replayed Result: {:?}", replayed_result));
     logging::log_execution_complete(&replayed_result);
 
+    // Build execution trace from the replay
+    let storage_after = engine.executor().get_storage_snapshot()?;
+    let trace_events = engine.executor().get_events().unwrap_or_default();
+    let budget = crate::inspector::budget::BudgetInspector::get_cpu_usage(engine.executor().host());
+    
+    let replayed_trace = build_execution_trace(
+        function,
+        &contract_path.to_string_lossy(),
+        args_str.map(|s| s.to_string()),
+        &storage_after,
+        &replayed_result,
+        budget,
+        engine.executor(),
+        &trace_events,
+        replay_steps,
+    );
+
+    // Truncate original_trace's call_sequence if needed to match replay_until
+    let mut truncated_original = original_trace.clone();
+    if truncated_original.call_sequence.len() > replay_steps {
+        truncated_original.call_sequence.truncate(replay_steps);
+    }
+
     // Compare results
     print_info("\n--- Comparison ---");
+    let report = crate::compare::CompareEngine::compare(&truncated_original, &replayed_trace);
+    let rendered = crate::compare::CompareEngine::render_report(&report);
 
-    let original_return_str = original_trace
-        .return_value
-        .as_ref()
-        .map(|v| serde_json::to_string(v).unwrap_or_default())
-        .unwrap_or_default();
-
-    let results_match = replayed_result.trim() == original_return_str.trim()
-        || format!("\"{replayed_result}\"") == original_return_str;
-
-    if results_match {
-        print_success("✓ Results match! Replayed execution produced the same output.");
-    } else {
-        print_warning("✗ Results differ!");
-        print_info(format!("  Original: {}", original_return_str));
-        print_info(format!("  Replayed: {}", replayed_result));
-    }
-
-    // Budget comparison
-    if let Some(original_budget) = &original_trace.budget {
-        let host = engine.executor().host();
-        let replayed_budget = crate::inspector::budget::BudgetInspector::get_cpu_usage(host);
-
-        print_info("\n--- Budget Comparison ---");
-        print_info(format!(
-            "  Original CPU: {} instructions",
-            original_budget.cpu_instructions
-        ));
-        print_info(format!(
-            "  Replayed CPU: {} instructions",
-            replayed_budget.cpu_instructions
-        ));
-
-        let cpu_diff =
-            replayed_budget.cpu_instructions as i64 - original_budget.cpu_instructions as i64;
-
-        match cpu_diff.cmp(&0) {
-            std::cmp::Ordering::Equal => {
-                print_success("  CPU usage matches exactly ✓");
-            }
-            std::cmp::Ordering::Greater => {
-                print_warning(format!("  CPU increased by {} instructions", cpu_diff));
-            }
-            std::cmp::Ordering::Less => {
-                print_success(format!("  CPU decreased by {} instructions", -cpu_diff));
-            }
-        }
-
-        print_info(format!(
-            "  Original Memory: {} bytes",
-            original_budget.memory_bytes
-        ));
-        print_info(format!(
-            "  Replayed Memory: {} bytes",
-            replayed_budget.memory_bytes
-        ));
-
-        let mem_diff = replayed_budget.memory_bytes as i64 - original_budget.memory_bytes as i64;
-
-        match mem_diff.cmp(&0) {
-            std::cmp::Ordering::Equal => {
-                print_success("  Memory usage matches exactly ✓");
-            }
-            std::cmp::Ordering::Greater => {
-                print_warning(format!("  Memory increased by {} bytes", mem_diff));
-            }
-            std::cmp::Ordering::Less => {
-                print_success(format!("  Memory decreased by {} bytes", -mem_diff));
-            }
-        }
-    }
-
-    // Generate detailed report if output file specified
     if let Some(output_path) = &args.output {
-        let mut report = String::new();
-        report.push_str("# Execution Replay Report\n\n");
-        report.push_str(&format!("**Trace File:** {:?}\n", args.trace_file));
-        report.push_str(&format!("**Contract:** {:?}\n", contract_path));
-        report.push_str(&format!("**Function:** {}\n", function));
-        if let Some(a) = args_str {
-            report.push_str(&format!("**Arguments:** {}\n", a));
-        }
-        report.push_str("\n## Results\n\n");
-        report.push_str(&format!(
-            "**Original Return Value:**\n```\n{}\n```\n\n",
-            original_return_str
-        ));
-        report.push_str(&format!(
-            "**Replayed Return Value:**\n```\n{}\n```\n\n",
-            replayed_result
-        ));
-
-        if results_match {
-            report.push_str("✓ **Results match**\n\n");
-        } else {
-            report.push_str("✗ **Results differ**\n\n");
-        }
-
-        if let Some(original_budget) = &original_trace.budget {
-            let host = engine.executor().host();
-            let replayed_budget = crate::inspector::budget::BudgetInspector::get_cpu_usage(host);
-
-            report.push_str("## Budget Comparison\n\n");
-            report.push_str("| Metric | Original | Replayed | Difference |\n");
-            report.push_str("|--------|----------|----------|------------|\n");
-            report.push_str(&format!(
-                "| CPU Instructions | {} | {} | {} |\n",
-                original_budget.cpu_instructions,
-                replayed_budget.cpu_instructions,
-                replayed_budget.cpu_instructions as i64 - original_budget.cpu_instructions as i64
-            ));
-            report.push_str(&format!(
-                "| Memory Bytes | {} | {} | {} |\n",
-                original_budget.memory_bytes,
-                replayed_budget.memory_bytes,
-                replayed_budget.memory_bytes as i64 - original_budget.memory_bytes as i64
-            ));
-        }
-
-        fs::write(output_path, &report).map_err(|e| {
-            DebuggerError::FileError(format!(
-                "Failed to write report to {:?}: {}",
-                output_path, e
-            ))
+        std::fs::write(output_path, &rendered).map_err(|e| {
+            DebuggerError::FileError(format!("Failed to write report to {:?}: {}", output_path, e))
         })?;
         print_success(format!("\nReplay report written to: {:?}", output_path));
+    } else {
+        logging::log_display(rendered, logging::LogLevel::Info);
     }
 
     if verbosity == Verbosity::Verbose {

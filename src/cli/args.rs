@@ -266,6 +266,10 @@ pub struct RunArgs {
     /// TTL warning threshold in ledger sequence numbers (default: 1000)
     #[arg(long, default_value = "1000")]
     pub ttl_warning_threshold: u32,
+
+    /// Export execution trace to JSON file
+    #[arg(long)]
+    pub trace_output: Option<PathBuf>,
 }
 
 impl RunArgs {
