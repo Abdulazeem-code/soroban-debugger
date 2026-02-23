@@ -32,77 +32,67 @@ fn initialize_tracing(verbosity: Verbosity) {
     }
 }
 
+fn print_deprecation_warning(deprecated_flag: &str, new_flag: &str) {
+    eprintln!(
+        "{}",
+        Formatter::warning(format!(
+            " Flag '{}' is deprecated. Please use '{}' instead.",
+            deprecated_flag, new_flag
+        ))
+    );
+}
+
 fn handle_deprecations(cli: &mut Cli) {
     match &mut cli.command {
         Some(Commands::Run(args)) => {
             if let Some(wasm) = args.wasm.take() {
-                tracing::warn!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                print_deprecation_warning("--wasm", "--contract");
                 args.contract = wasm;
             }
             if let Some(snapshot) = args.snapshot.take() {
-                tracing::warn!(
-                    "{}",
-                    Formatter::warning(
-                        "Warning: --snapshot is deprecated. Please use --network-snapshot instead."
-                    )
-                );
+                print_deprecation_warning("--snapshot", "--network-snapshot");
                 args.network_snapshot = Some(snapshot);
             }
         }
         Some(Commands::Interactive(args)) => {
             if let Some(wasm) = args.wasm.take() {
-                tracing::warn!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                print_deprecation_warning("--wasm", "--contract");
                 args.contract = wasm;
             }
             if let Some(snapshot) = args.snapshot.take() {
-                tracing::warn!(
-                    "{}",
-                    Formatter::warning(
-                        "Warning: --snapshot is deprecated. Please use --network-snapshot instead."
-                    )
-                );
+                print_deprecation_warning("--snapshot", "--network-snapshot");
                 args.network_snapshot = Some(snapshot);
             }
         }
         Some(Commands::Inspect(args)) => {
             if let Some(wasm) = args.wasm.take() {
-                tracing::warn!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                print_deprecation_warning("--wasm", "--contract");
                 args.contract = wasm;
             }
         }
         Some(Commands::Optimize(args)) => {
             if let Some(wasm) = args.wasm.take() {
-                tracing::warn!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                print_deprecation_warning("--wasm", "--contract");
                 args.contract = wasm;
             }
             if let Some(snapshot) = args.snapshot.take() {
-                tracing::warn!(
-                    "{}",
-                    Formatter::warning(
-                        "Warning: --snapshot is deprecated. Please use --network-snapshot instead."
-                    )
-                );
+                print_deprecation_warning("--snapshot", "--network-snapshot");
                 args.network_snapshot = Some(snapshot);
             }
         }
         Some(Commands::Profile(args)) => {
             if let Some(wasm) = args.wasm.take() {
-                tracing::warn!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                print_deprecation_warning("--wasm", "--contract");
                 args.contract = wasm;
             }
         }
         Some(Commands::Repl(args)) => {
             if let Some(wasm) = args.wasm.take() {
-                tracing::warn!("{}", Formatter::warning("Warning: --wasm and --contract-path are deprecated. Please use --contract instead."));
+                print_deprecation_warning("--wasm", "--contract");
                 args.contract = wasm;
             }
             if let Some(snapshot) = args.snapshot.take() {
-                tracing::warn!(
-                    "{}",
-                    Formatter::warning(
-                        "Warning: --snapshot is deprecated. Please use --network-snapshot instead."
-                    )
-                );
+                print_deprecation_warning("--snapshot", "--network-snapshot");
                 args.network_snapshot = Some(snapshot);
             }
         }

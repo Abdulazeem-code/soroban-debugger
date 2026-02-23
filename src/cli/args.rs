@@ -4,6 +4,28 @@ use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 use std::path::PathBuf;
 
+/// Mapping of deprecated CLI flags to their new equivalents
+/// Used to show deprecation warnings when old flags are used
+pub const DEPRECATED_FLAGS: &[(&str, &str)] = &[
+    ("--wasm", "--contract"),
+    ("--contract-path", "--contract"),
+    ("--snapshot", "--network-snapshot"),
+];
+
+/// Get a deprecation warning message for a deprecated flag
+/// Returns None if the flag is not deprecated
+pub fn get_deprecation_warning(deprecated_flag: &str) -> Option<String> {
+    DEPRECATED_FLAGS
+        .iter()
+        .find(|(old, _)| *old == deprecated_flag)
+        .map(|(old, new)| {
+            format!(
+                "⚠️  Flag '{}' is deprecated. Please use '{}' instead.",
+                old, new
+            )
+        })
+}
+
 /// Verbosity level for output control
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verbosity {
