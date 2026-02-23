@@ -15,6 +15,7 @@ use crate::ui::formatter::Formatter;
 use crate::ui::tui::DebuggerUI;
 use crate::{DebuggerError, Result};
 use miette::WrapErr;
+use serde::Serialize;
 use std::fs;
 use std::io::Write;
 use textplots::{Chart, Plot, Shape};
@@ -486,62 +487,48 @@ pub fn run(args: RunArgs, verbosity: Verbosity) -> Result<()> {
             output["ledger_entries"] = ledger.to_json();
         }
 
-        // Add instruction counts if available
-        if let Some(instr_counts) = get_instruction_counts(&engine) {
-            output["instruction_counts"] = serde_json::json!({
-                "by_function": instr_counts.function_counts.iter().map(|(name, count)| {
-                    serde_json::json!({
-                        "function": name,
-                        "count": count,
-                        "percentage": ((*count as f64 / instr_counts.total as f64) * 100.0)
-                    })
-                }).collect::<Vec<_>>(),
-                "total": instr_counts.total,
-            });
-        }
-
         let json_output = serde_json::to_string_pretty(&output).map_err(|e| {
-            DebuggerError::FileError(format!("Failed to serialize output: {}", e))
-        })?;
+            DebuggerError::FileError(format!("Failed to serialize output: {}", e))output["instruction_counts"] = serde_json::json!({
+        })?;ap(|(name, count)| {
         logging::log_display(&json_output, logging::LogLevel::Info);
-        output_writer.write(&json_output)?;
-    }
-
-    output_writer.flush()?;
+        output_writer.write(&json_output)?;                   "function": name,
+    }                        "count": count,
+rcentage": ((*count as f64 / instr_counts.total as f64) * 100.0)
+    output_writer.flush()?;                    })
 
     // Display instruction count per function if available
     if let Some(instr_counts) = get_instruction_counts(&engine) {
-        display_instruction_counts(&instr_counts);
+        display_instruction_counts(&instr_counts);}
         
-        // Include in JSON output
-        if args.json
+        // Include in JSON outputput = serde_json::to_string_pretty(&output).map_err(|e| {
+        if args.jsonrError::FileError(format!("Failed to serialize output: {}", e))
             || args
-                .format
+                .formaty(&json_output, logging::LogLevel::Info);
                 .as_deref()
                 .map(|f| f.eq_ignore_ascii_case("json"))
                 .unwrap_or(false)
         {
             // Already handled above, but ensure it's in output
-        }
-    }
+        }/ Display instruction count per function if available
+    }    if let Some(instr_counts) = get_instruction_counts(&engine) {
 
     // Show confirmation message if file was written
-    if let Some(output_path) = &args.save_output {
+    if let Some(output_path) = &args.save_output {put
         print_success(format!(
             "\n✓ Output saved to: {}",
-            output_path.display()
-        ));
-    }
-
-    Ok(())
-}
+            output_path.display()     .format
+        ));           .as_deref()
+    }                .map(|f| f.eq_ignore_ascii_case("json"))
+      .unwrap_or(false)
+    Ok(())       {
+}            // Already handled above, but ensure it's in output
 
 /// Structure to hold instruction counts per function
 #[derive(Debug, Clone, serde::Serialize)]
-struct InstructionCounts {
-    function_counts: Vec<(String, u64)>,
-    total: u64,
-}
+struct InstructionCounts { was written
+    function_counts: Vec<(String, u64)>,(output_path) = &args.save_output {
+    total: u64,       print_success(format!(
+}            "\n✓ Output saved to: {}",
 
 /// Get instruction counts from the debugger engine
 fn get_instruction_counts(engine: &DebuggerEngine) -> Option<InstructionCounts> {
@@ -549,47 +536,47 @@ fn get_instruction_counts(engine: &DebuggerEngine) -> Option<InstructionCounts> 
     if let Ok(counts) = engine.executor().get_instruction_counts() {
         Some(counts)
     } else {
-        None
-    }
-}
+        Nonetructure to hold instruction counts per function
+    }[derive(Debug, Clone, serde::Serialize)]
+}struct InstructionCounts {
 
 /// Display instruction counts per function in a formatted table
 fn display_instruction_counts(counts: &InstructionCounts) {
     if counts.function_counts.is_empty() {
-        return;
-    }
+        return;et instruction counts from the debugger engine
+    }fn get_instruction_counts(engine: &DebuggerEngine) -> Option<InstructionCounts> {
 
-    print_info("\n--- Instruction Count per Function ---");
+    print_info("\n--- Instruction Count per Function ---");    if let Ok(counts) = engine.executor().get_instruction_counts() {
 
     // Calculate percentages
     let percentages: Vec<f64> = counts
         .function_counts
         .iter()
         .map(|(_, count)| {
-            if counts.total > 0 {
-                (*count as f64 / counts.total as f64) * 100.0
-            } else {
-                0.0
+            if counts.total > 0 {ble
+                (*count as f64 / counts.total as f64) * 100.0on_counts(counts: &InstructionCounts) {
+            } else {ion_counts.is_empty() {
+                0.0n;
             }
         })
-        .collect();
+        .collect();    print_info("\n--- Instruction Count per Function ---");
 
     // Find max widths for alignment
-    let max_func_width = counts
-        .function_counts
+    let max_func_width = counts<f64> = counts
+        .function_countson_counts
         .iter()
-        .map(|(name, _)| name.len())
-        .max()
-        .unwrap_or(20)
+        .map(|(name, _)| name.len())(_, count)| {
+        .max()total > 0 {
+        .unwrap_or(20)*count as f64 / counts.total as f64) * 100.0
         .max(10);
     let max_count_width = counts
         .function_counts
         .iter()
-        .map(|(_, count)| count.to_string().len())
+        .map(|(_, count)| count.to_string().len())ct();
         .max()
-        .unwrap_or(10)
-        .max(10);
-
+        .unwrap_or(10)idths for alignment
+        .max(10);    let max_func_width = counts
+ounts
     // Print header
     let header = format!(
         "{:<width1$} | {:>width2$} | {:>8$}",
@@ -598,22 +585,36 @@ fn display_instruction_counts(counts: &InstructionCounts) {
         "Percentage",
         width1 = max_func_width,
         width2 = max_count_width,
-        width3 = 10
+        width3 = 10  .map(|(_, count)| count.to_string().len())
     );
     print_info(&header);
-    print_info(&"-".repeat(header.len()));
+    print_info(&"-".repeat(header.len()));        .max(10);
 
     // Print rows
     for ((func_name, count), percentage) in counts.function_counts.iter().zip(percentages.iter()) {
         let row = format!(
             "{:<width1$} | {:>width2$} | {:>7.2$}%",
-            func_name,
+            func_name,ons",
             count,
             percentage,
             width1 = max_func_width,
             width2 = max_count_width,
             width3 = 8
         );
+        print_info(&row);rint_info(&"-".repeat(header.len()));
+    }
+
+    print_info(&"-".repeat(header.len())); percentage) in counts.function_counts.iter().zip(percentages.iter()) {
+    let total_row = format!(
+        "{:<width1$} | {:>width2$}",width1$} | {:>width2$} | {:>7.2$}%",
+        "TOTAL",,
+        counts.total,
+        width1 = max_func_width,
+        width2 = max_count_width      width1 = max_func_width,
+    );unt_width,
+    print_info(&total_row);           width3 = 8
+}        );
+
         print_info(&row);
     }
 
